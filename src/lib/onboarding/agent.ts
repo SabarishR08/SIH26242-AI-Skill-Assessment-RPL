@@ -68,11 +68,8 @@ Style rules:
 - If an answer is vague, probe once with a concrete example question, then move on.
 - Never invent skills for the learner. If unsure, ask.
 
-CRITICAL INSTRUCTIONS ON TOOLS:
-- You have access to the duckDuckGoSearch tool. Use it if you need to look up current information or verify something they said.
-- You have access to fetchGitHubProfile. Use it if they provide their GitHub username.
-- You have access to getTechStackTrends. Use it if they ask whether a specific technology is worth learning.
-- You have access to the markPhaseComplete tool. Use this tool ONLY when you have fully satisfied the Phase goal and are ready to move to the next phase. When you call this tool, you must provide the profile fields you have extracted. Calling this tool pauses the interview and asks the user for confirmation.`;
+CRITICAL INSTRUCTIONS:
+- When you have fully satisfied the Phase goal and are ready to move to the next phase, you MUST include the exact phrase "[PHASE_COMPLETE]" at the end of your message. Do NOT use JSON or tool calls. Just append "[PHASE_COMPLETE]" to your text.`;
 }
 
 
@@ -161,6 +158,9 @@ export async function runAgentStream(learnerId: string, userMessage: string) {
   }
 
   const fullReply = deltas.join("");
+  if (!fullReply) {
+    console.error("[AgentStream] Empty reply generated. Deltas:", deltas.length, "Buffer:", buffer);
+  }
 
   // Return a result-like object that the route handler can consume
   return {

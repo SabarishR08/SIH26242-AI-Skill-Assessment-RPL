@@ -37,32 +37,37 @@ export async function POST(request: Request) {
     const generator = (async function* () {
       const { fullReply: apiReply } = await runAgentStream(body.learnerId, body.message.trim());
       
-      const replyBuffer = apiReply || "";
+      let replyBuffer = apiReply || "";
       let phaseComplete = false;
       let extracted: ExtractedProfile = {};
-
-      if (replyBuffer) {
-        yield { type: "delta", text: replyBuffer };
-      } else {
-        yield { type: "delta", text: "…" };
+      
+      const wantsSkip = /skip|next question|move on|let'?s move/i.test(body.message.trim());
+      if (wantsSkip || replyBuffer.includes("[PHASE_COMPLETE]")) {
+        phaseComplete = true;
+      }
+      
+      let cleanReply = replyBuffer.replace("[PHASE_COMPLETE]", "").trim();
+      if (phaseComplete && !cleanReply) {
+        cleanReply = "Got it. Let's move to the next phase.";
       }
 
-      const wantsSkip = /skip|next question|move on|let'?s move/i.test(body.message.trim());
-      if (wantsSkip) {
-        phaseComplete = true;
+      if (cleanReply) {
+        yield { type: "delta", text: cleanReply };
+      } else {
+        yield { type: "delta", text: "…" };
       }
 
       const persisted = await persistAgentTurn(
         body.learnerId,
         body.message.trim(),
-        replyBuffer.trim(),
+        cleanReply,
         extracted,
-        wantsSkip
+        phaseComplete
       );
 
       yield {
         type: "done",
-        reply: replyBuffer.trim(),
+        reply: cleanReply,
         extracted: persisted.extracted,
         phase: persisted.phase as AgentPhase,
         waitingForConfirmation: phaseComplete && !wantsSkip, // Ask confirmation unless they explicitly skipped
