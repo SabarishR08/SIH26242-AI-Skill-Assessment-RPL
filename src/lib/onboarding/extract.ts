@@ -10,10 +10,12 @@ export async function extractProfile(learnerId: string): Promise<ExtractedProfil
   
   const graph = await loadSkillGraph();
   const domains = graph.domains.join(", ");
+  const compactSkills = Object.values(graph.skills).map((s) => `${s.id}|${s.name}`).join(", ");
   
   const systemPrompt = `You are an expert data extraction bot.
 Review the conversation history and extract the following information about the user.
 Available domains: ${domains}
+Available skills (id|name): ${compactSkills}
 
 Output a JSON object ONLY with the following structure (omit keys if not known):
 {
