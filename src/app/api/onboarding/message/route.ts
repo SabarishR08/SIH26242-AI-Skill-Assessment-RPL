@@ -57,6 +57,11 @@ export async function POST(request: Request) {
         yield { type: "delta", text: "…" };
       }
 
+      if (phaseComplete) {
+        const { extractProfile } = await import("@/lib/onboarding/extract");
+        extracted = await extractProfile(body.learnerId);
+      }
+
       const persisted = await persistAgentTurn(
         body.learnerId,
         body.message.trim(),
