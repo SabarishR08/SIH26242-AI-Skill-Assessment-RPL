@@ -1,5 +1,4 @@
-import { streamText, tool } from "ai";
-import { createGroq } from "@ai-sdk/groq";
+import { tool } from "ai";
 import { search } from "duck-duck-scrape";
 import { db } from "@/lib/db";
 import { loadSkillGraph } from "@/lib/engine/data";
@@ -97,42 +96,86 @@ export async function runAgentStream(learnerId: string, userMessage: string) {
     `Profile captured so far: ${JSON.stringify(extractedSoFar)}`
   ].join("\n\n");
 
-  const messages: any[] = [
+  const messages: Array<{ role: "assistant" | "user" | "system"; content: string }> = [
     ...history.slice(-10).map((t) => ({ role: t.role, content: t.content || "..." })),
     { role: "user", content: userMessage },
   ];
 
-  const apiMessages = [
-    { role: "system", content: systemPrompt },
-    ...messages,
-  ];
+  const useGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
+  const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+  const baseUrl = process.env.GROQ_BASE_URL
+    || (useGateway ? "https://ai-gateway.vercel.sh/v1" : "https://api.groq.com/openai/v1");
+  const authToken = useGateway ? process.env.AI_GATEWAY_API_KEY : process.env.GROQ_API_KEY;
 
-    // Vercel AI SDK with Groq and duck-duck-scrape
-  const groq = createGroq({ apiKey: process.env.GROQ_API_KEY, baseURL: process.env.GROQ_BASE_URL });
-  
-          const { textStream, text } = streamText({
-    model: groq(process.env.GROQ_MODEL || "openai/gpt-oss-120b"),
-    messages: apiMessages,
-    temperature: 0.7,
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: ["Bearer", authToken ?? ""].join(" "),
+    },
+    body: JSON.stringify({
+      model: useGateway ? `groq/${model}` : model,
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      temperature: 0.7,
+      stream: true,
+    }),
   });
 
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`LLM API error ${response.status}: ${errorText}`);
+  }
+
+  if (!response.body) throw new Error("LLM API returned empty response body");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
   const deltas: string[] = [];
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line.startsWith("data:")) continue;
+
+      const payload = line.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+
+      try {
+        const parsed = JSON.parse(payload);
+        const delta = parsed?.choices?.[0]?.delta?.content;
+        if (typeof delta === "string" && delta.length > 0) {
+          deltas.push(delta);
+        }
+      } catch {
+        // Ignore malformed SSE chunks and continue parsing remaining output.
+      }
+    }
+  }
+
+  const fullReply = deltas.join("");
 
   // Return a result-like object that the route handler can consume
   return {
     result: {
       fullStream: (async function* () {
-        for await (const d of textStream) {
-          deltas.push(d);
+        for (const d of deltas) {
           yield { type: "text-delta", text: d };
         }
       })(),
-      text: text,
+      text: Promise.resolve(fullReply),
     },
     state,
     learnerId,
     userMessage,
-    get fullReply() { return deltas.join(""); },
+    get fullReply() { return fullReply; },
   };
 }
 
