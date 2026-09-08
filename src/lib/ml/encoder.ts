@@ -43,8 +43,21 @@ export async function encoderAvailable(): Promise<boolean> {
   }
   try {
     const dir = encoderDir();
-    await fs.access(path.join(dir, "onnx", "model_quantized.onnx"));
+    const model = await fs.stat(path.join(dir, "onnx", "model_quantized.onnx"));
     await fs.access(path.join(dir, "tokenizer.json"));
+    // The model is ~34 MB. A file of a few hundred bytes is a Git LFS pointer
+    // that was never fetched — checking out this repo without `git lfs` (or
+    // on a host that does not smudge LFS, such as Vercel) leaves a 133-byte
+    // text file here. Detect it now, with a message that says what to do,
+    // instead of letting ONNX fail later on "Protobuf parsing failed".
+    if (model.size < 1_000_000) {
+      console.warn(
+        `[ml] encoder at ${dir} is ${model.size} bytes — an unfetched Git LFS pointer, not the model. ` +
+          "Run `git lfs pull` to enable semantic search and the skill tagger.",
+      );
+      availability = false;
+      return availability;
+    }
     availability = true;
   } catch {
     availability = false;
