@@ -9,6 +9,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Course, CourseCatalogue, FreeResource, ResourceIndex, SkillGraph, SkillNode } from "./types";
+import { loadResourceSkillMappingV2, loadVouchedCoursesForSkill } from "@/lib/ml/artifacts";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 
@@ -70,13 +71,27 @@ export async function loadCatalogue(): Promise<CourseCatalogue> {
   const byId: Record<string, Course> = {};
   for (const c of courses) byId[c.course_id] = c;
 
+  // A trained run (ml/ bundle) widens skill -> course coverage from 166 to
+  // 211 skills. We take its vouched pairs when installed; without a run the
+  // committed static mapping is used unchanged.
+  const vouched = await loadVouchedCoursesForSkill();
+
   // skill -> courses, ranked by rating desc then viewers desc (missing values sink).
   const buckets: Record<string, Course[]> = {};
-  for (const [courseId, skillIds] of Object.entries(mapping)) {
-    const course = byId[courseId];
-    if (!course) continue;
-    for (const sid of skillIds) {
-      (buckets[sid] ||= []).push(course);
+  if (vouched) {
+    for (const [sid, courseIds] of Object.entries(vouched)) {
+      for (const cid of courseIds) {
+        const course = byId[cid];
+        if (course) (buckets[sid] ||= []).push(course);
+      }
+    }
+  } else {
+    for (const [courseId, skillIds] of Object.entries(mapping)) {
+      const course = byId[courseId];
+      if (!course) continue;
+      for (const sid of skillIds) {
+        (buckets[sid] ||= []).push(course);
+      }
     }
   }
   const coursesForSkill: Record<string, string[]> = {};
@@ -95,9 +110,14 @@ export async function loadCatalogue(): Promise<CourseCatalogue> {
 export async function loadResources(): Promise<ResourceIndex> {
   if (resourceCache) return resourceCache;
   const raw = JSON.parse(await fs.readFile(path.join(DATA_DIR, "free_resources_mapping.json"), "utf-8")) as RawResourcesFile;
+  // Free resources carry the 42 AI-domain skills the Coursera catalogue has
+  // no real course for, so a trained run's widened resource mapping matters
+  // more here than the course one.
+  const resourceMapping = await loadResourceSkillMappingV2();
   const bySkill: Record<string, FreeResource[]> = {};
   for (const r of raw.resources) {
-    for (const sid of r.skill_ids) {
+    const skillIds = resourceMapping?.[r.resource_id] ?? r.skill_ids;
+    for (const sid of skillIds) {
       (bySkill[sid] ||= []).push(r);
     }
   }

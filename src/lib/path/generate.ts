@@ -14,6 +14,7 @@
 import { db } from "@/lib/db";
 import { buildGeneratedPath, computeDepths, phasePartitions } from "@/lib/engine";
 import { scheduleMilestones, milestoneHours } from "@/lib/engine/time";
+import { loadSkillNeighbors } from "@/lib/ml/artifacts";
 import type { MilestoneDraft } from "./types";
 
 export type Scenario = "balanced" | "intensive" | "exploratory";
@@ -94,17 +95,36 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
   if (scenario === "exploratory") {
     const goalDepth = depths[goalSkillId] ?? 0;
     const onPath = new Set(generated.skills.map((s) => s.skillId));
-    adjacentSkills = Object.values(generated.graph.skills)
-      .filter(
-        (s) =>
-          s.domain === generated.domain &&
-          !onPath.has(s.id) &&
-          !knownSkillIds.includes(s.id) &&
-          (depths[s.id] ?? 0) <= goalDepth,
-      )
-      .sort((a, b) => (depths[b.id] ?? 0) - (depths[a.id] ?? 0))
-      .slice(0, 3)
-      .map((s) => s.id);
+    const eligible = (id: string) =>
+      !onPath.has(id) && !knownSkillIds.includes(id) && id !== goalSkillId && (depths[id] ?? 0) <= goalDepth;
+
+    // A trained run knows which skills are actually *near* the goal. Without
+    // it we fall back to "same domain, sorted by depth", which picks the
+    // deepest siblings whether or not they have anything to do with the goal.
+    const neighbours = await loadSkillNeighbors();
+    if (neighbours) {
+      const seen = new Set<string>();
+      const candidates: Array<{ id: string; score: number }> = [];
+      // Nearest to the goal first, then nearest to what the path already covers.
+      const anchors = [goalSkillId, ...generated.skills.slice(-3).map((s) => s.skillId)];
+      for (const anchor of anchors) {
+        for (const n of neighbours[anchor] ?? []) {
+          if (seen.has(n.skillId) || !eligible(n.skillId)) continue;
+          seen.add(n.skillId);
+          candidates.push({ id: n.skillId, score: n.score });
+        }
+      }
+      candidates.sort((a, b) => b.score - a.score);
+      adjacentSkills = candidates.slice(0, 3).map((c) => c.id);
+    }
+
+    if (!adjacentSkills.length) {
+      adjacentSkills = Object.values(generated.graph.skills)
+        .filter((s) => s.domain === generated.domain && eligible(s.id))
+        .sort((a, b) => (depths[b.id] ?? 0) - (depths[a.id] ?? 0))
+        .slice(0, 3)
+        .map((s) => s.id);
+    }
   }
 
   const drafts: MilestoneDraft[] = [];

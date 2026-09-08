@@ -1,0 +1,34 @@
+# PathFinder ML training config. CLI flags override these values.
+seed: 42
+holdout_fraction: 0.15
+
+retriever:
+  base_model: BAAI/bge-small-en-v1.5   # 33M params, 384-d. Try BAAI/bge-base-en-v1.5 on the 5070 if time allows.
+  epochs: 4
+  batch_size: 64
+  learning_rate: 3.0e-5
+  max_seq_length: 256
+  export_onnx: true
+
+tagger:
+  C: 4.0                # inverse L2 regularisation for the per-skill logistic heads
+  min_positives: 2      # skills with fewer training courses fall back to cosine similarity
+
+derive:
+  courses_per_skill_min: 3
+  courses_per_skill_max: 25
+  resources_per_skill_max: 6
+  skill_neighbors: 8
+  course_neighbors: 5
+  edge_sim_threshold: 0.78
+  max_suggested_edges: 80
+
+lora:
+  base_model: Qwen/Qwen2.5-3B-Instruct
+  epochs: 2
+  batch_size: 4
+  grad_accum: 4
+  learning_rate: 2.0e-4
+  max_seq_length: 2048
+  lora_r: 16
+  lora_alpha: 32

@@ -1,0 +1,11 @@
+[
+  {
+    "from": "ml_datascience",
+    "to": "ds_ml_intro",
+    "fromName": "Data Science",
+    "toName": "Machine Learning",
+    "score": 0.8007,
+    "crossDomain": true,
+    "reason": "embedding similarity 0.80; depth 1 -> 4; no existing DAG path"
+  }
+]

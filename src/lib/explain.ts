@@ -13,6 +13,8 @@
 import { db } from "@/lib/db";
 import { chatCompletion } from "@/lib/ai/llm";
 import { loadSkillGraph, loadCatalogue, computeDepths, ancestorClosure } from "@/lib/engine";
+import { loadCourseNeighbors } from "@/lib/ml/artifacts";
+import type { CourseCatalogue } from "@/lib/engine/types";
 
 export type ExplainSubject = "skill" | "course" | "project" | "milestone";
 
@@ -119,6 +121,40 @@ export async function explainSkill(learnerId: string, skillId: string): Promise<
   return { subject: "skill", title, grounds, prose, mode: "deterministic" };
 }
 
+/**
+ * "What else could I have taken?" — named, comparable alternatives.
+ *
+ * A trained run ships the nearest courses in the retriever's embedding space
+ * (`course_neighbors.json`), so the counterfactual can point at real titles
+ * and say why this one won on rating. Without a run we can only make the
+ * generic claim, which is what this used to say unconditionally.
+ */
+async function courseCounterfactual(
+  catalogue: CourseCatalogue,
+  courseId: string,
+  rating: number | null,
+): Promise<string> {
+  const generic = "Alternatives were ranked lower on rating/relevance — this one best balances proof-quality and fit.";
+  const neighbours = await loadCourseNeighbors();
+  const nearest = neighbours?.[courseId];
+  if (!nearest?.length) return generic;
+
+  const alternatives = nearest
+    .map((n) => catalogue.byId[n.courseId])
+    .filter((c): c is NonNullable<typeof c> => Boolean(c))
+    .slice(0, 3);
+  if (!alternatives.length) return generic;
+
+  const named = alternatives.map((c) => `"${c.Title}" (${c.Rating ?? "unrated"}/5)`).join(", ");
+  const beaten = alternatives.filter((c) => (c.Rating ?? 0) < (rating ?? 0)).length;
+  return (
+    `The closest alternatives covering the same ground are ${named}. ` +
+    (beaten
+      ? `This course was picked because it out-rates ${beaten} of them.`
+      : `They rate comparably — this one was picked on relevance to your path.`)
+  );
+}
+
 export async function explainCourse(learnerId: string, courseId: string): Promise<Explanation> {
   const catalogue = await loadCatalogue();
   const graph = await loadSkillGraph();
@@ -140,7 +176,7 @@ export async function explainCourse(learnerId: string, courseId: string): Promis
       `Rating ${course.Rating ?? "—"}/5 from real learner reviews${course.Viewers ? ` (${Math.round(course.Viewers).toLocaleString()} learners)` : ""}.`,
       course.DurationRaw ? `Duration: ${course.DurationRaw}` : "",
     ].filter(Boolean),
-    counterfactual: `Alternatives were ranked lower on rating/relevance — this one best balances proof-quality and fit.`,
+    counterfactual: await courseCounterfactual(catalogue, courseId, course.Rating),
   };
 
   const prose = `"${course.Title}" was picked because it teaches ${skillsItTeaches.slice(0, 4).join(", ")} (skills on your path), carries a ${course.Rating ?? "—"}/5 rating${course.Site ? ` on ${course.Site}` : ""}${course.DurationRaw ? `, and runs ${course.DurationRaw.toLowerCase()}` : ""}.`;

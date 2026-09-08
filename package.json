@@ -2,7 +2,7 @@
   "name": "pathfinder-ai",
   "version": "2.0.0",
   "private": true,
-  "description": "Evidence-based adaptive learning path engine — multi-round AI onboarding, real GitHub/LeetCode/Codeforces skill verification, deterministic graph-based roadmaps, project verification and adaptive replanning.",
+  "description": "Evidence-based adaptive learning path engine \u2014 multi-round AI onboarding, real GitHub/LeetCode/Codeforces skill verification, deterministic graph-based roadmaps, project verification and adaptive replanning.",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -19,7 +19,10 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ml:bundle": "python ml/make_bundle.py",
+    "ml:smoke": "python ml/run_all.py --smoke",
+    "ml:install-encoder": "python ml/install_encoder.py ml/trained/run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.44",
@@ -31,6 +34,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.1.1",
+    "@huggingface/transformers": "^4.2.0",
     "@mdxeditor/editor": "^3.39.1",
     "@prisma/client": "^6.11.1",
     "@radix-ui/react-accordion": "^1.2.11",
