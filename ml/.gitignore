@@ -1,0 +1,21 @@
+.venv/
+venv/
+output/
+__pycache__/
+models_cache/
+BUNDLE_INFO.json
+data/distill/
+
+# Returned training runs (large; keep out of git)
+trained/
+
+# Catalogue copies — regenerated from ../data by make_bundle.py, so tracking
+# them would duplicate the source of truth. The collected training data in
+# data/extra/ IS tracked: it cost real API calls to produce.
+data/skill_graph.json
+data/courses.json
+data/course_skill_mapping.json
+data/free_resources_mapping.json
+
+# Stray archives (downloaded bundles, returned runs)
+*.zip

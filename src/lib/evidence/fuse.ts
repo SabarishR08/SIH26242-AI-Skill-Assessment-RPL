@@ -17,6 +17,8 @@
  * compounds; contradictory evidence doesn't silently cancel).
  */
 import { db } from "@/lib/db";
+import { loadEquivalenceMap } from "@/lib/ml/artifacts";
+import { loadSkillGraph } from "@/lib/engine/data";
 import type { SkillClaim, SkillEvidenceSource } from "./types";
 
 const SOURCE_CONFIDENCE: Record<SkillEvidenceSource, number> = {
@@ -138,7 +140,152 @@ export async function fuseEvidence(
     });
   }
 
+  await transferAcrossEquivalents(learnerId, updates);
+
   return updates;
+}
+
+// ─── Equivalent-skill transfer ───────────────────────────────────────────────
+
+/**
+ * The skill graph duplicates the same competence across domains: `ds_python`
+ * and `ml_python` are both literally "Python Programming", `ds_sql` and
+ * `wd_sql` are both "SQL". A trained run identifies those pairs
+ * (`equivalent_skills.json`, exact name match plus high embedding
+ * similarity), and without this the learner has to prove Python once per
+ * domain — the same repository counts for one node and not its twin.
+ *
+ * Transfer rules, deliberately conservative:
+ *   - level and tier carry over unchanged (it is the same competence, and
+ *     the evidence really does demonstrate it)
+ *   - confidence is discounted, because the claim was made about the twin
+ *   - nothing is ever lowered: a skill with its own stronger direct evidence
+ *     keeps it
+ *   - one hop only, and mirrored rows never re-trigger a transfer
+ */
+export const EQUIVALENCE_CONFIDENCE_DISCOUNT = 0.9;
+
+export interface AssessmentState {
+  claimedLevel: number;
+  evidencedLevel: number;
+  tier: string;
+  confidence: number;
+}
+
+/**
+ * Pure merge: what an equivalent skill's row should become, or null when the
+ * transfer would change nothing. Exported for tests.
+ */
+export function mergeEquivalent(
+  source: AssessmentState,
+  existing: AssessmentState | null,
+): AssessmentState | null {
+  const confidence = Math.min(0.97, source.confidence * EQUIVALENCE_CONFIDENCE_DISCOUNT);
+  if (!existing) {
+    if (source.claimedLevel <= 0 && source.evidencedLevel <= 0) return null;
+    return {
+      claimedLevel: source.claimedLevel,
+      evidencedLevel: source.evidencedLevel,
+      tier: source.tier,
+      confidence,
+    };
+  }
+  const merged: AssessmentState = {
+    claimedLevel: Math.max(existing.claimedLevel, source.claimedLevel),
+    evidencedLevel: Math.max(existing.evidencedLevel, source.evidencedLevel),
+    tier: TIER_RANK[source.tier] > TIER_RANK[existing.tier] ? source.tier : existing.tier,
+    confidence: Math.max(existing.confidence, confidence),
+  };
+  const unchanged =
+    merged.claimedLevel === existing.claimedLevel &&
+    merged.evidencedLevel === existing.evidencedLevel &&
+    merged.tier === existing.tier &&
+    Math.abs(merged.confidence - existing.confidence) <= 0.01;
+  return unchanged ? null : merged;
+}
+
+/** Mirror freshly-applied assessments onto their equivalent skills. */
+export async function transferAcrossEquivalents(
+  learnerId: string,
+  updates: FusionUpdate[],
+): Promise<FusionUpdate[]> {
+  const equivalence = await loadEquivalenceMap();
+  if (!Object.keys(equivalence).length) return [];
+
+  const graph = await loadSkillGraph();
+  const mirrored: FusionUpdate[] = [];
+  const touched = new Set(updates.map((u) => u.skillId));
+
+  for (const update of updates) {
+    for (const twinId of equivalence[update.skillId] ?? []) {
+      // Don't fight with a skill the same batch of evidence already set
+      // directly — its own claim is better than a mirror of its twin.
+      if (touched.has(twinId)) continue;
+      const twinNode = graph.skills[twinId];
+      if (!twinNode) continue;
+
+      const source = await db.skillAssessment.findUnique({
+        where: { learnerId_skillId: { learnerId, skillId: update.skillId } },
+      });
+      if (!source) continue;
+      const existing = await db.skillAssessment.findUnique({
+        where: { learnerId_skillId: { learnerId, skillId: twinId } },
+      });
+
+      const merged = mergeEquivalent(
+        {
+          claimedLevel: source.claimedLevel,
+          evidencedLevel: source.evidencedLevel,
+          tier: source.tier,
+          confidence: source.confidence,
+        },
+        existing
+          ? {
+              claimedLevel: existing.claimedLevel,
+              evidencedLevel: existing.evidencedLevel,
+              tier: existing.tier,
+              confidence: existing.confidence,
+            }
+          : null,
+      );
+      if (!merged) continue;
+
+      const note = `Carried over from "${update.skillName}" (same skill in another domain)`;
+      if (existing) {
+        await db.skillAssessment.update({
+          where: { id: existing.id },
+          data: {
+            ...merged,
+            notes: [existing.notes, note].filter(Boolean).join(" | ").slice(0, 800),
+            lastVerifiedAt:
+              merged.tier === "proven" || merged.tier === "verified" ? new Date() : existing.lastVerifiedAt,
+          },
+        });
+      } else {
+        await db.skillAssessment.create({
+          data: {
+            learnerId,
+            skillId: twinId,
+            skillName: twinNode.name,
+            ...merged,
+            notes: note,
+            lastVerifiedAt: merged.tier === "proven" || merged.tier === "verified" ? new Date() : null,
+          },
+        });
+      }
+
+      mirrored.push({
+        skillId: twinId,
+        skillName: twinNode.name,
+        before: existing
+          ? { level: existing.evidencedLevel, tier: existing.tier, confidence: existing.confidence }
+          : null,
+        after: { level: merged.evidencedLevel, tier: merged.tier, confidence: merged.confidence },
+        changed: true,
+      });
+    }
+  }
+  return mirrored;
 }
 
 export async function logEvidence(

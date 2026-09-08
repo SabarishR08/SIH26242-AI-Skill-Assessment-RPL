@@ -13,6 +13,7 @@
  *     same shape so the pipeline never breaks (honestly labelled `heuristic`).
  */
 import { chatJson, asArray, asString, asInt } from "@/lib/ai/llm";
+import { tagTexts } from "@/lib/ml/tagger";
 import type { SkillGraph } from "@/lib/engine/types";
 
 const GH_API = "https://api.github.com";
@@ -59,7 +60,7 @@ export interface GithubAnalysis {
   archetype: string;
   summary: string;
   claims: SkillClaim[];
-  mode: "llm" | "heuristic";
+  mode: "llm" | "tagger" | "heuristic";
 }
 
 function ghHeaders(): Record<string, string> {
@@ -384,5 +385,69 @@ export async function analyzeGithub(profile: GithubProfile, graph: SkillGraph): 
   );
 
   if (result) return result.value;
-  return heuristicAnalysis(profile, graph);
+  // No LLM: the trained tagger reads repository prose (descriptions, topics,
+  // READMEs) that the language/keyword table cannot, so try it first and
+  // merge the language heuristic underneath it.
+  const tagged = await taggerAnalysis(profile, graph);
+  return tagged ?? heuristicAnalysis(profile, graph);
+}
+
+/**
+ * Trained fallback for `analyzeGithub`: one tagger pass per repository over
+ * its description, topics and README excerpt. Skill *level* still comes from
+ * the deterministic language-share heuristic — the tagger says which skills a
+ * repository is about, not how good the author is at them.
+ */
+async function taggerAnalysis(profile: GithubProfile, graph: SkillGraph): Promise<GithubAnalysis | null> {
+  const repos = profile.repos.filter((r) => !r.isFork).slice(0, 12);
+  if (!repos.length) return null;
+
+  const texts = repos.map((r) =>
+    [r.name.replace(/[-_]/g, " "), r.description ?? "", r.topics.join(", "), (r.readmeExcerpt ?? "").slice(0, 800)]
+      .filter(Boolean)
+      .join(". ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+  const tagged = await tagTexts(texts, 6);
+  if (!tagged) return null;
+
+  const best = new Map<string, { probability: number; strength: number; repos: string[] }>();
+  tagged.forEach((hits, i) => {
+    for (const hit of hits) {
+      if (!graph.skills[hit.skillId]) continue;
+      const cur = best.get(hit.skillId);
+      if (!cur) {
+        best.set(hit.skillId, { probability: hit.probability, strength: hit.strength, repos: [repos[i].name] });
+      } else {
+        cur.probability = Math.max(cur.probability, hit.probability);
+        cur.strength = Math.max(cur.strength, hit.strength);
+        if (cur.repos.length < 3) cur.repos.push(repos[i].name);
+      }
+    }
+  });
+  if (!best.size) return null;
+
+  // Level from corroboration: one repo is level 2, several is level 3, and a
+  // skill spread across repos with real code reaches 4.
+  const claims: SkillClaim[] = [...best.entries()]
+    .sort((a, b) => b[1].probability - a[1].probability)
+    .slice(0, 15)
+    .map(([skillId, v]) => ({
+      skillId,
+      skillName: graph.skills[skillId].name,
+      level: v.repos.length >= 3 ? 4 : v.repos.length >= 2 ? 3 : 2,
+      quote: `Matched in ${v.repos.length} repositor${v.repos.length === 1 ? "y" : "ies"}: ${v.repos.join(", ")}`,
+      strength: v.strength,
+    }));
+
+  const topLang = Object.entries(profile.languageMix).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "various";
+  return {
+    archetype: `${topLang} developer with ${profile.publicRepos} public repositories`,
+    summary: `Trained skill tagger matched ${claims.length} catalogue skill${
+      claims.length === 1 ? "" : "s"
+    } across ${repos.length} repositories (primary language ${topLang}, ${profile.totalStars} stars).`,
+    claims,
+    mode: "tagger",
+  };
 }

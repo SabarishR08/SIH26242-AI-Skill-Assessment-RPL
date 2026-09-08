@@ -1,0 +1,56 @@
+[
+  {
+    "a": "ds_linreg",
+    "b": "ml_linreg",
+    "name": "Linear Regression",
+    "score": 0.918
+  },
+  {
+    "a": "wd_linux",
+    "b": "cloud_linux",
+    "name": "Linux",
+    "score": 0.8971
+  },
+  {
+    "a": "ds_datascience",
+    "b": "ml_datascience",
+    "name": "Data Science",
+    "score": 0.896
+  },
+  {
+    "a": "ds_excel",
+    "b": "biz_excel",
+    "name": "Microsoft Excel",
+    "score": 0.8908
+  },
+  {
+    "a": "ds_ml_intro",
+    "b": "ml_ml",
+    "name": "Machine Learning",
+    "score": 0.8584
+  },
+  {
+    "a": "wd_problem",
+    "b": "pd_problemsolving",
+    "name": "Problem Solving",
+    "score": 0.8581
+  },
+  {
+    "a": "ds_python",
+    "b": "ml_python",
+    "name": "Python Programming",
+    "score": 0.8504
+  },
+  {
+    "a": "ds_dbms",
+    "b": "cloud_dbms",
+    "name": "Database (DBMS)",
+    "score": 0.8422
+  },
+  {
+    "a": "ds_sql",
+    "b": "wd_sql",
+    "name": "SQL",
+    "score": 0.8163
+  }
+]

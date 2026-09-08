@@ -1,0 +1,4 @@
+# Stage-2 (LoRA distillation) deps. Only needed for `--stages lora`.
+peft>=0.13
+trl>=0.12
+bitsandbytes>=0.44

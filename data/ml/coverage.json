@@ -1,0 +1,13 @@
+{
+  "threshold": 0.54,
+  "skills_total": 211,
+  "skills_with_courses_before": 166,
+  "skills_with_courses_after": 211,
+  "pairs_before": 3465,
+  "pairs_after": 5546,
+  "added_semantic": 1952,
+  "added_fallback": 129,
+  "suggested_edges": 1,
+  "cross_domain_edges": 1,
+  "equivalent_skill_pairs": 9
+}

@@ -1,0 +1,544 @@
+{
+  "schema": "pathfinder-ml-output/1",
+  "run": {
+    "run_id": "20260907-234539",
+    "started_at": "2026-09-08T06:45:43+00:00",
+    "finished_at": "2026-09-08T06:53:14+00:00",
+    "smoke": false,
+    "stages": [
+      "prepare",
+      "retriever",
+      "tagger",
+      "derive",
+      "lora",
+      "package"
+    ],
+    "data_dir": "C:\\Users\\Antplay\\Downloads\\ml\\data",
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 5070",
+      "vram_gb": 11.9,
+      "cuda": "12.8",
+      "torch": "2.11.0+cu128"
+    },
+    "argv": [
+      "--all",
+      "--epochs",
+      "8"
+    ]
+  },
+  "bundle": {
+    "created_at": "2026-09-08T04:50:11+00:00",
+    "git_sha": "1dfbf7c",
+    "data_files": [
+      "skill_graph.json",
+      "courses.json",
+      "course_skill_mapping.json",
+      "free_resources_mapping.json"
+    ]
+  },
+  "versions": {
+    "python": "3.14.7",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "torch": "2.11.0+cu128",
+    "transformers": "4.57.6",
+    "sentence_transformers": "5.7.0",
+    "sklearn": "1.9.0",
+    "numpy": "2.5.3",
+    "datasets": "5.0.1",
+    "peft": null,
+    "trl": null
+  },
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 5070",
+    "vram_gb": 11.9,
+    "cuda": "12.8",
+    "torch": "2.11.0+cu128"
+  },
+  "config": {
+    "seed": 42,
+    "holdout_fraction": 0.15,
+    "retriever": {
+      "base_model": "BAAI/bge-small-en-v1.5",
+      "epochs": 8,
+      "batch_size": 64,
+      "learning_rate": 3e-05,
+      "max_seq_length": 256,
+      "export_onnx": true
+    },
+    "tagger": {
+      "C": 4.0,
+      "min_positives": 2
+    },
+    "derive": {
+      "courses_per_skill_min": 3,
+      "courses_per_skill_max": 25,
+      "resources_per_skill_max": 6,
+      "skill_neighbors": 8,
+      "course_neighbors": 5,
+      "edge_sim_threshold": 0.78,
+      "max_suggested_edges": 80
+    },
+    "lora": {
+      "base_model": "Qwen/Qwen2.5-3B-Instruct",
+      "epochs": 2,
+      "batch_size": 4,
+      "grad_accum": 4,
+      "learning_rate": 0.0002,
+      "max_seq_length": 2048,
+      "lora_r": 16,
+      "lora_alpha": 32
+    }
+  },
+  "stages": {
+    "prepare": {
+      "skills": 211,
+      "edges": 227,
+      "courses": 2118,
+      "mapped_courses": 2118,
+      "train_courses": 1801,
+      "holdout_courses": 317,
+      "train_pairs": 7830,
+      "extra_texts": 3773,
+      "extra_by_source": {
+        "hf-course": 791,
+        "job-post": 600,
+        "synthetic": 2382
+      },
+      "extra_pairs": 4945,
+      "resources": 51,
+      "skills_without_courses": 45,
+      "uncovered_skill_ids": [
+        "aie_python",
+        "aie_llm_fundamentals",
+        "aie_api_integration",
+        "aie_data_pipelines",
+        "aie_finetuning",
+        "aie_agent_design",
+        "aie_tool_use",
+        "aie_memory_systems",
+        "aie_orchestration",
+        "aie_evaluation",
+        "aie_observability",
+        "aie_mlops_basics",
+        "aie_deployment",
+        "aie_scaling",
+        "aie_cost_optimization",
+        "aie_security",
+        "pe_llm_basics",
+        "pe_prompt_fundamentals",
+        "pe_fewshot",
+        "pe_cot",
+        "pe_structured_output",
+        "pe_prompt_chaining",
+        "pe_eval_metrics",
+        "pe_ab_testing",
+        "pe_guardrails",
+        "pe_jailbreak_defense",
+        "pe_versioning",
+        "pe_cicd",
+        "pe_monitoring",
+        "pe_cost_latency",
+        "rag_python",
+        "rag_embeddings",
+        "rag_vector_db",
+        "rag_chunking",
+        "rag_retrieval",
+        "rag_reranking",
+        "rag_prompt_construction",
+        "rag_pipeline",
+        "rag_evaluation",
+        "rag_agentic_rag",
+        "rag_graphrag",
+        "rag_multimodal",
+        "rag_caching",
+        "rag_security",
+        "rag_deployment"
+      ],
+      "status": "ok",
+      "seconds": 0.8
+    },
+    "retriever": {
+      "base_model": "BAAI/bge-small-en-v1.5",
+      "device": "cuda",
+      "train_pairs": 7830,
+      "epochs": 8,
+      "batch_size": 64,
+      "train_seconds": 394.1,
+      "final_loss": 1.5476,
+      "baseline": {
+        "n_holdout_courses": 209,
+        "course_to_skill": {
+          "recall@1": 0.2167,
+          "recall@3": 0.4438,
+          "recall@5": 0.5694,
+          "recall@10": 0.7394,
+          "mrr": 0.6352
+        },
+        "skill_to_course": {
+          "precision@5": 0.3264,
+          "recall@10": 0.651,
+          "skills_evaluated": 144
+        },
+        "cosine_tagging": {
+          "threshold": 0.73,
+          "f1": 0.3861,
+          "precision": 0.4253,
+          "recall": 0.3534
+        }
+      },
+      "finetuned": {
+        "n_holdout_courses": 209,
+        "course_to_skill": {
+          "recall@1": 0.4415,
+          "recall@3": 0.8341,
+          "recall@5": 0.9379,
+          "recall@10": 0.9831,
+          "mrr": 0.9334
+        },
+        "skill_to_course": {
+          "precision@5": 0.45,
+          "recall@10": 0.8476,
+          "skills_evaluated": 144
+        },
+        "cosine_tagging": {
+          "threshold": 0.54,
+          "f1": 0.7191,
+          "precision": 0.6508,
+          "recall": 0.8034
+        }
+      },
+      "extra_text_holdout": {
+        "hf-course": {
+          "n": 120,
+          "recall@1": 0.3743,
+          "recall@3": 0.6847,
+          "recall@5": 0.7736,
+          "recall@10": 0.8979,
+          "mrr": 0.7587
+        },
+        "job-post": {
+          "n": 82,
+          "recall@1": 0.2297,
+          "recall@3": 0.5904,
+          "recall@5": 0.7663,
+          "recall@10": 0.9553,
+          "mrr": 0.823
+        },
+        "synthetic": {
+          "n": 338,
+          "recall@1": 0.7041,
+          "recall@3": 0.9024,
+          "recall@5": 0.929,
+          "recall@10": 0.9704,
+          "mrr": 0.8107
+        }
+      },
+      "onnx_export": "ok",
+      "status": "ok",
+      "seconds": 441.6
+    },
+    "tagger": {
+      "trained_heads": 211,
+      "train_courses": 1801,
+      "train_rows_total": 5025,
+      "holdout_courses": 317,
+      "logistic": {
+        "threshold": 0.9,
+        "micro_f1": 0.7782,
+        "precision": 0.795,
+        "recall": 0.7621,
+        "macro_f1": 0.7594
+      },
+      "cosine_baseline": {
+        "threshold": 0.57,
+        "micro_f1": 0.6197,
+        "precision": 0.5571,
+        "recall": 0.6983,
+        "macro_f1": 0.6271
+      },
+      "hybrid_or": {
+        "micro_f1": 0.6861,
+        "precision": 0.5842,
+        "recall": 0.831,
+        "macro_f1": 0.7259
+      },
+      "extra_holdout": {
+        "hf-course": {
+          "n": 126,
+          "logistic": {
+            "micro_f1": 0.5185,
+            "precision": 0.5803,
+            "recall": 0.4686,
+            "macro_f1": 0.315
+          },
+          "cosine": {
+            "micro_f1": 0.3377,
+            "precision": 0.7536,
+            "recall": 0.2176,
+            "macro_f1": 0.1879
+          },
+          "hybrid_or": {
+            "micro_f1": 0.5182,
+            "precision": 0.5672,
+            "recall": 0.477,
+            "macro_f1": 0.3315
+          }
+        },
+        "job-post": {
+          "n": 85,
+          "logistic": {
+            "micro_f1": 0.6912,
+            "precision": 0.6545,
+            "recall": 0.7323,
+            "macro_f1": 0.4353
+          },
+          "cosine": {
+            "micro_f1": 0.5904,
+            "precision": 0.5861,
+            "recall": 0.5948,
+            "macro_f1": 0.4258
+          },
+          "hybrid_or": {
+            "micro_f1": 0.6614,
+            "precision": 0.5738,
+            "recall": 0.7807,
+            "macro_f1": 0.4583
+          }
+        },
+        "synthetic": {
+          "n": 338,
+          "logistic": {
+            "micro_f1": 0.6339,
+            "precision": 0.5888,
+            "recall": 0.6864,
+            "macro_f1": 0.6282
+          },
+          "cosine": {
+            "micro_f1": 0.5648,
+            "precision": 0.4639,
+            "recall": 0.7219,
+            "macro_f1": 0.5978
+          },
+          "hybrid_or": {
+            "micro_f1": 0.5633,
+            "precision": 0.4464,
+            "recall": 0.7633,
+            "macro_f1": 0.6156
+          }
+        }
+      },
+      "status": "ok",
+      "seconds": 6.3
+    },
+    "derive": {
+      "threshold": 0.54,
+      "skills_total": 211,
+      "skills_with_courses_before": 166,
+      "skills_with_courses_after": 211,
+      "pairs_before": 3465,
+      "pairs_after": 5546,
+      "added_semantic": 1952,
+      "added_fallback": 129,
+      "suggested_edges": 1,
+      "cross_domain_edges": 1,
+      "equivalent_skill_pairs": 9,
+      "status": "ok",
+      "seconds": 1.5
+    },
+    "lora": {
+      "status": "skipped",
+      "reason": "missing train.jsonl",
+      "seconds": 0.0
+    }
+  },
+  "files": [
+    {
+      "path": "artifacts/course_neighbors.json",
+      "bytes": 445661
+    },
+    {
+      "path": "artifacts/course_skill_mapping.v2.json",
+      "bytes": 110939
+    },
+    {
+      "path": "artifacts/coverage.json",
+      "bytes": 311
+    },
+    {
+      "path": "artifacts/equivalent_skills.json",
+      "bytes": 982
+    },
+    {
+      "path": "artifacts/resource_skill_mapping.v2.json",
+      "bytes": 4671
+    },
+    {
+      "path": "artifacts/search_index.json",
+      "bytes": 1794172
+    },
+    {
+      "path": "artifacts/skill_course_scores.v2.json",
+      "bytes": 347118
+    },
+    {
+      "path": "artifacts/skill_neighbors.json",
+      "bytes": 180812
+    },
+    {
+      "path": "artifacts/suggested_edges.json",
+      "bytes": 266
+    },
+    {
+      "path": "config.used.yaml",
+      "bytes": 595
+    },
+    {
+      "path": "embeddings/courses.npy",
+      "bytes": 3253376
+    },
+    {
+      "path": "embeddings/extra.npy",
+      "bytes": 5795456
+    },
+    {
+      "path": "embeddings/ids.json",
+      "bytes": 187555
+    },
+    {
+      "path": "embeddings/resources.npy",
+      "bytes": 78464
+    },
+    {
+      "path": "embeddings/skills.npy",
+      "bytes": 324224
+    },
+    {
+      "path": "models/retriever/1_Pooling/config.json",
+      "bytes": 93
+    },
+    {
+      "path": "models/retriever/config.json",
+      "bytes": 685
+    },
+    {
+      "path": "models/retriever/config_sentence_transformers.json",
+      "bytes": 297
+    },
+    {
+      "path": "models/retriever/model.safetensors",
+      "bytes": 133462128
+    },
+    {
+      "path": "models/retriever/modules.json",
+      "bytes": 448
+    },
+    {
+      "path": "models/retriever/README.md",
+      "bytes": 21888
+    },
+    {
+      "path": "models/retriever/sentence_bert_config.json",
+      "bytes": 250
+    },
+    {
+      "path": "models/retriever/special_tokens_map.json",
+      "bytes": 732
+    },
+    {
+      "path": "models/retriever/tokenizer.json",
+      "bytes": 711781
+    },
+    {
+      "path": "models/retriever/tokenizer_config.json",
+      "bytes": 1330
+    },
+    {
+      "path": "models/retriever/vocab.txt",
+      "bytes": 231508
+    },
+    {
+      "path": "models/retriever-onnx/1_Pooling/config.json",
+      "bytes": 93
+    },
+    {
+      "path": "models/retriever-onnx/config.json",
+      "bytes": 685
+    },
+    {
+      "path": "models/retriever-onnx/config_sentence_transformers.json",
+      "bytes": 297
+    },
+    {
+      "path": "models/retriever-onnx/modules.json",
+      "bytes": 448
+    },
+    {
+      "path": "models/retriever-onnx/onnx/model.onnx",
+      "bytes": 133041945
+    },
+    {
+      "path": "models/retriever-onnx/README.md",
+      "bytes": 21888
+    },
+    {
+      "path": "models/retriever-onnx/sentence_bert_config.json",
+      "bytes": 250
+    },
+    {
+      "path": "models/retriever-onnx/special_tokens_map.json",
+      "bytes": 732
+    },
+    {
+      "path": "models/retriever-onnx/tokenizer.json",
+      "bytes": 711781
+    },
+    {
+      "path": "models/retriever-onnx/tokenizer_config.json",
+      "bytes": 1528
+    },
+    {
+      "path": "models/retriever-onnx/vocab.txt",
+      "bytes": 231508
+    },
+    {
+      "path": "models/tagger/tagger.pkl",
+      "bytes": 328383
+    },
+    {
+      "path": "models/tagger/weights.json",
+      "bytes": 1676247
+    },
+    {
+      "path": "prepared/courses.json",
+      "bytes": 1134714
+    },
+    {
+      "path": "prepared/extra.json",
+      "bytes": 1833205
+    },
+    {
+      "path": "prepared/pairs_train.jsonl",
+      "bytes": 5331085
+    },
+    {
+      "path": "prepared/resources.json",
+      "bytes": 16801
+    },
+    {
+      "path": "prepared/skills.json",
+      "bytes": 46207
+    },
+    {
+      "path": "prepared/split.json",
+      "bytes": 29695
+    },
+    {
+      "path": "prepared/stats.json",
+      "bytes": 1448
+    },
+    {
+      "path": "train.log",
+      "bytes": 2600
+    }
+  ]
+}

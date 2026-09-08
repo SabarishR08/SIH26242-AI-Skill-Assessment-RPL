@@ -1,0 +1,14 @@
+# Stage-1 training deps. Torch is installed separately by run.bat / run.sh
+# (RTX 5070 is Blackwell / sm_120 and needs the cu128 wheel, torch >= 2.7).
+sentence-transformers>=3.4
+transformers>=4.45
+datasets>=2.20
+accelerate>=0.34
+scikit-learn>=1.5
+numpy>=1.26
+pyyaml>=6.0
+tqdm>=4.66
+# Optional ONNX export of the retriever (skipped gracefully if it fails)
+optimum[onnxruntime]>=1.22
+onnx>=1.16
+onnxruntime>=1.19

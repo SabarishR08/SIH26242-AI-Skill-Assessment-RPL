@@ -10,6 +10,7 @@
  * real skill catalogue.
  */
 import { chatJson, asArray, asString, asInt } from "@/lib/ai/llm";
+import { tagTexts } from "@/lib/ml/tagger";
 import type { SkillClaim } from "./types";
 import type { SkillGraph } from "@/lib/engine/types";
 
@@ -20,7 +21,7 @@ export interface ResumeAnalysis {
   summary: string;
   claims: SkillClaim[];
   highlights: string[];
-  mode: "llm" | "heuristic";
+  mode: "llm" | "tagger" | "heuristic";
 }
 
 export async function extractPdfText(buffer: ArrayBuffer): Promise<string> {
@@ -32,6 +33,61 @@ export async function extractPdfText(buffer: ArrayBuffer): Promise<string> {
   } catch (e) {
     throw new Error(`PDF extraction failed: ${e instanceof Error ? e.message : "unknown error"}`);
   }
+}
+
+/**
+ * Trained fallback: split the resume into paragraphs and run the skill
+ * tagger over each, so a bullet about Django is attributed on its own terms
+ * instead of needing the literal catalogue name to appear in the text.
+ * Returns null when the encoder/tagger is not installed.
+ */
+async function taggerAnalysis(text: string, graph: SkillGraph): Promise<ResumeAnalysis | null> {
+  const chunks = text
+    .split(/\n\s*\n|\n(?=\s*[-•*])/)
+    .map((c) => c.replace(/\s+/g, " ").trim())
+    .filter((c) => c.length >= 40)
+    .slice(0, 40);
+  if (!chunks.length) return null;
+
+  const tagged = await tagTexts(chunks, 6);
+  if (!tagged) return null;
+
+  // Best evidence per skill across the whole document.
+  const best = new Map<string, { strength: number; probability: number; quote: string }>();
+  tagged.forEach((hits, i) => {
+    for (const hit of hits) {
+      if (!graph.skills[hit.skillId]) continue;
+      const prev = best.get(hit.skillId);
+      if (!prev || hit.probability > prev.probability) {
+        best.set(hit.skillId, { strength: hit.strength, probability: hit.probability, quote: chunks[i].slice(0, 220) });
+      }
+    }
+  });
+  if (!best.size) return null;
+
+  const claims: SkillClaim[] = [...best.entries()]
+    .sort((a, b) => b[1].probability - a[1].probability)
+    .slice(0, 15)
+    .map(([skillId, v]) => ({
+      skillId,
+      skillName: graph.skills[skillId].name,
+      // A resume is self-report: level 2 ("used in a job/project"), matching
+      // the keyword path. Only artefacts raise the evidenced level.
+      level: 2,
+      quote: v.quote,
+      strength: v.strength,
+    }));
+
+  const yearsMatch = text.toLowerCase().match(/(\d+)\+?\s*(?:years|yrs)/);
+  return {
+    currentRole: "See skill matches below",
+    yearsExperience: yearsMatch ? Math.min(30, parseInt(yearsMatch[1], 10)) : 0,
+    education: "",
+    summary: `Matched ${claims.length} catalogue skill${claims.length === 1 ? "" : "s"} across ${chunks.length} sections using the trained skill tagger.`,
+    claims,
+    highlights: [],
+    mode: "tagger",
+  };
 }
 
 function keywordHeuristic(text: string, graph: SkillGraph): ResumeAnalysis {
@@ -142,5 +198,6 @@ Rules:
   );
 
   if (result) return result.value;
-  return keywordHeuristic(clean, graph);
+  // No LLM: prefer the trained tagger, fall back to the keyword scan.
+  return (await taggerAnalysis(clean, graph)) ?? keywordHeuristic(clean, graph);
 }
