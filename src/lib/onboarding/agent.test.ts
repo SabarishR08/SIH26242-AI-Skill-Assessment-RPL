@@ -339,7 +339,7 @@ describe("runAgentStream", () => {
     expect(fetchUrl).toContain("chat/completions");
 
     const fetchBody = JSON.parse(getFetchMock().mock.calls[0][1]!.body as string);
-    expect(fetchBody.model).toBe("groq/llama-3.3-70b-versatile");
+    expect(fetchBody.model).toBe("groq/openai/gpt-oss-120b");
 
     process.env.AI_GATEWAY_API_KEY = origKey;
   });

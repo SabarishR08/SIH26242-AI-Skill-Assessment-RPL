@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -114,50 +114,6 @@ jobs:
           name: nextjs-build
           path: .next/
           retention-days: 3
-
-  # ─── Stage 4: Deploy (production only on main push) ────────────────────────
-  deploy:
-    name: 🚀 Deploy to Vercel
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.url }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build project
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to production
-        id: deploy
-        run: |
-          URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
-
-      - name: Verify deployment health
-        run: |
-          sleep 30
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://path-finder-ai-five.vercel.app/api/health")
-          echo "Health check returned HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "⚠️ Non-200 response — deployment may need attention"
-            exit 1
-          fi
 
   # ─── Summary ────────────────────────────────────────────────────────────────
   summary:

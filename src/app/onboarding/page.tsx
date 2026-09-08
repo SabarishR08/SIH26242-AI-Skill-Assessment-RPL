@@ -176,7 +176,7 @@ export default function OnboardingPage() {
   const handleConfirmation = (isEnough: boolean) => {
     setWaitingForConfirmation(false);
     if (isEnough) {
-      send("That's enough, let's move on.");
+      setStage("evidence");
     }
   };
 
