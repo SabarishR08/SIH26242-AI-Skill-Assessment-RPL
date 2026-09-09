@@ -74,8 +74,8 @@ export async function GET(request: Request) {
     if (current?.status === "in_progress" && current.hasProject) {
       actions.push({ kind: "submit_project", label: "Submit your project repo", detail: "Proof beats completion — get it evaluated" });
     }
-    const pendingQuiz = activePath
-      ? await db.quiz.findFirst({ where: { learnerId, milestoneId: current?.id, status: "pending", kind: "milestone_gate" } })
+    const pendingQuiz = (activePath && current && current.status === "in_progress")
+      ? await db.quiz.findFirst({ where: { learnerId, milestoneId: current.id, status: "pending", kind: "milestone_gate" } })
       : null;
     if (pendingQuiz && current?.status === "in_progress") {
       actions.push({ kind: "gate_quiz", label: "Take the gate quiz", detail: `Pass to complete ${current.phase}` });

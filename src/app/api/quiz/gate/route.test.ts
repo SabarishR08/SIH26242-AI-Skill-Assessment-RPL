@@ -6,6 +6,11 @@ const mockDb = vi.hoisted(() => ({
   quiz: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
+    update: vi.fn().mockResolvedValue({}),
+    delete: vi.fn().mockResolvedValue({}),
+  },
+  quizAttempt: {
+    count: vi.fn().mockResolvedValue(0),
   },
   milestone: {
     findUnique: vi.fn(),
@@ -34,6 +39,13 @@ function makeRequest(body: Record<string, unknown>): Request {
 describe("/api/quiz/gate POST", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDb.milestone.findUnique.mockResolvedValue({
+      id: "m1",
+      title: "Phase 1: React",
+      status: "in_progress",
+      path: { learnerId: "l1" },
+    });
+    mockDb.quizAttempt.count.mockResolvedValue(0);
   });
 
   it("returns 400 when learnerId is missing", async () => {

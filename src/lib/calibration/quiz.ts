@@ -459,6 +459,19 @@ export async function gradeQuiz(quizId: string, answers: number[]): Promise<Quiz
   const newStatus = passed ? "passed" : attemptsCount >= maxAttempts ? "failed" : "pending";
   await db.quiz.update({ where: { id: quizId }, data: { status: newStatus } });
 
+  // Clear quiz_failed replan badge if a quiz is passed on the active path
+  if (passed) {
+    const activePath = await db.learningPath.findFirst({
+      where: { learnerId: quiz.learnerId, isActive: true },
+    });
+    if (activePath?.replanReason === "quiz_failed") {
+      await db.learningPath.update({
+        where: { id: activePath.id },
+        data: { replanReason: null },
+      });
+    }
+  }
+
   if (quiz.kind === "calibration" && quiz.skillId) {
     if (passed || attemptsCount >= maxAttempts) {
       // Calibration quizzes target the claimed level; recover it from the assessment.
@@ -478,24 +491,52 @@ export async function gradeQuiz(quizId: string, answers: number[]): Promise<Quiz
   }
 
   if (quiz.kind === "milestone_gate" && quiz.milestoneId && passed) {
-    // Gate passed → milestone completes, next unlocks, path replans with fresh evidence.
-    const milestone = await db.milestone.findUnique({ where: { id: quiz.milestoneId } });
+    // Gate passed → apply skill verdicts. Milestone completes ONLY if any required project is also passed.
+    const milestone = await db.milestone.findUnique({
+      where: { id: quiz.milestoneId },
+      include: { project: { include: { submissions: true } } },
+    });
     if (milestone && milestone.status !== "complete") {
       const skillIds = JSON.parse(milestone.skillIdsJson) as string[];
       const skillNames = JSON.parse(milestone.skillNamesJson) as string[];
       for (let i = 0; i < skillIds.length; i++) {
         await applyQuizVerdict(quiz.learnerId, skillIds[i], skillNames[i] ?? skillIds[i], true, 3, score);
       }
-      await db.milestone.update({ where: { id: milestone.id }, data: { status: "complete", completedAt: new Date() } });
-      const { unlockNext } = await import("@/lib/path/replan");
-      await unlockNext(milestone.pathId);
-      await db.activityLog.create({
-        data: {
-          learnerId: quiz.learnerId,
-          kind: "milestone_completed",
-          detailJson: JSON.stringify({ milestoneId: milestone.id, title: milestone.title, via: "gate_quiz", score }),
-        },
-      });
+
+      // Check if project is also required and whether it has passed
+      const projectPassed = !milestone.hasProject || (
+        milestone.project?.submissions.some((s) => s.status === "passed") ?? false
+      );
+
+      if (projectPassed) {
+        await db.milestone.update({ where: { id: milestone.id }, data: { status: "complete", completedAt: new Date() } });
+        const { unlockNext } = await import("@/lib/path/replan");
+        await unlockNext(milestone.pathId);
+
+        // Clean up any remaining pending quizzes for this milestone so they don't reappear
+        await db.quiz.updateMany({
+          where: { milestoneId: milestone.id, status: "pending" },
+          data: { status: "passed" },
+        });
+
+        const path = await db.learningPath.findUnique({ where: { id: milestone.pathId } });
+        if (path?.replanReason === "quiz_failed") {
+          await db.learningPath.update({ where: { id: path.id }, data: { replanReason: null } });
+        }
+
+        await db.activityLog.create({
+          data: {
+            learnerId: quiz.learnerId,
+            kind: "milestone_completed",
+            detailJson: JSON.stringify({ milestoneId: milestone.id, title: milestone.title, via: "gate_quiz", score }),
+          },
+        });
+      } else {
+        // Project is still mandatory — phase remains in_progress until project passes
+        if (milestone.status !== "in_progress") {
+          await db.milestone.update({ where: { id: milestone.id }, data: { status: "in_progress" } });
+        }
+      }
     }
   }
 
@@ -509,12 +550,16 @@ export async function gradeQuiz(quizId: string, answers: number[]): Promise<Quiz
     });
   }
 
-  // Sanitize breakdown: only leak correctIndex and explanation once the quiz is finished (terminal)
+  // Sanitize breakdown:
+  // For milestone gates, only reveal correctIndex and explanation once PASSED.
+  // Withholding answers on failure prevents harvesting the key to cheat on retakes (PF-01).
+  // For calibration quizzes, reveal explanations only when terminal and passed.
+  const revealAnswers = quiz.kind === "milestone_gate" ? passed : (isTerminal && passed);
   const clientBreakdown = rawBreakdown.map((b) => ({
     questionId: b.questionId,
     correct: b.correct,
     chosenIndex: b.chosenIndex,
-    ...(isTerminal ? { correctIndex: b.correctIndex, explanation: b.explanation } : {}),
+    ...(revealAnswers ? { correctIndex: b.correctIndex, explanation: b.explanation } : {}),
   }));
 
   const verdict = passed
