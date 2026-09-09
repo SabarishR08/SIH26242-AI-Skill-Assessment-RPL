@@ -31,6 +31,8 @@ const nextConfig: NextConfig = {
       "node_modules/onnxruntime-node/**",
       "node_modules/onnxruntime-common/**",
       "node_modules/@huggingface/transformers/**",
+      "node_modules/next/dist/compiled/next-server/**",
+      "node_modules/next/dist/compiled/next-devtools/**",
       "ml/**",
       "dist/**",
       "e2e/**",
@@ -38,7 +40,7 @@ const nextConfig: NextConfig = {
   },
   outputFileTracingIncludes: {
     "**/*": [
-      "./node_modules/next/dist/server/**/*",
+      "./node_modules/next/dist/**/*",
     ],
   },
 };
