@@ -14,6 +14,54 @@ export interface CourseRecommendationOptions {
   evidencedLevel?: number;
 }
 
+export function inferCourseLevel(course: Partial<Course>): "Beginner" | "Intermediate" | "Advanced" {
+  if (course.Level && course.Level.trim()) {
+    const raw = course.Level.trim().toLowerCase();
+    if (raw.includes("adv")) return "Advanced";
+    if (raw.includes("int")) return "Intermediate";
+    if (raw.includes("beg") || raw.includes("intro") || raw.includes("fund")) return "Beginner";
+  }
+
+  const text = `${course.Title || ""} ${course.ShortIntro || ""} ${course.SubCategory || ""}`.toLowerCase();
+
+  // Advanced signals
+  if (
+    text.includes("advanced") ||
+    text.includes("production") ||
+    text.includes("deep learning") ||
+    text.includes("expert") ||
+    text.includes("reinforcement learning") ||
+    text.includes("architecture") ||
+    text.includes("optimization") ||
+    text.includes("distributed") ||
+    text.includes("kernel") ||
+    text.includes("compiler") ||
+    text.includes("generative adversarial")
+  ) {
+    return "Advanced";
+  }
+
+  // Beginner signals
+  if (
+    text.includes("beginner") ||
+    text.includes("introduction") ||
+    text.includes("intro") ||
+    text.includes("fundamentals") ||
+    text.includes("for everybody") ||
+    text.includes("basics") ||
+    text.includes("foundations") ||
+    text.includes("getting started") ||
+    text.includes("launch your career") ||
+    text.includes("101") ||
+    text.includes("principles")
+  ) {
+    return "Beginner";
+  }
+
+  // Default to Intermediate for general applied material
+  return "Intermediate";
+}
+
 function levelBand(level: number): "beginner" | "intermediate" | "advanced" {
   if (level <= 1) return "beginner";
   if (level <= 3) return "intermediate";

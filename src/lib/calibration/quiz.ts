@@ -38,7 +38,7 @@ export interface QuizQuestionDraft {
 
 export async function detectGaps(learnerId: string): Promise<CalibrationGap[]> {
   const assessments = await db.skillAssessment.findMany({ where: { learnerId } });
-  return assessments
+  const rawGaps = assessments
     .filter((a) => a.claimedLevel - a.evidencedLevel >= 2 && a.claimedLevel >= 2)
     .map((a) => ({
       skillId: a.skillId,
@@ -48,8 +48,20 @@ export async function detectGaps(learnerId: string): Promise<CalibrationGap[]> {
       gap: a.claimedLevel - a.evidencedLevel,
       tier: a.tier,
     }))
-    .sort((a, b) => b.gap - a.gap || b.claimedLevel - a.claimedLevel)
-    .slice(0, 4);
+    .sort((a, b) => b.gap - a.gap || b.claimedLevel - a.claimedLevel);
+
+  // PF-17: Deduplicate gaps by normalized skillName so twins across domains (e.g. ds_ml_intro vs ml_ml)
+  // do not produce redundant duplicate quiz cards for the same competence
+  const seenNames = new Set<string>();
+  const deduped: CalibrationGap[] = [];
+  for (const g of rawGaps) {
+    const key = g.skillName.trim().toLowerCase();
+    if (!seenNames.has(key)) {
+      seenNames.add(key);
+      deduped.push(g);
+    }
+  }
+  return deduped.slice(0, 4);
 }
 
 // ─── Question generation ─────────────────────────────────────────────────────

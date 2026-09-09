@@ -137,11 +137,14 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
     const hours = skillMeta.reduce((sum, s) => sum + (s?.estimatedHours ?? 8), 0);
     const meanLevel =
       skillIds.reduce((sum, id) => sum + (evidencedLevels[id] ?? 0), 0) / Math.max(1, skillIds.length);
-    const hasProject = opts.adjacent
-      ? false
-      : scenario === "intensive"
-        ? phaseIndex === Math.ceil(phases.length / 2) || phaseIndex === phases.length
-        : phaseIndex % 2 === 0 || phaseIndex === phases.length;
+    const isFinalPhase = opts.adjacent || (adjacentSkills.length === 0 && phaseIndex === phases.length);
+    const hasProject = scenario === "exploratory" && isFinalPhase
+      ? true // PF-26: exploratory ending in a portfolio-grade capstone project
+      : opts.adjacent
+        ? false
+        : scenario === "intensive"
+          ? phaseIndex === Math.ceil(phases.length / 2) || phaseIndex === phases.length
+          : phaseIndex % 2 === 0 || phaseIndex === phases.length;
     const totalHours = milestoneHours({ skillHours: hours, hasProject, hasQuiz: true });
     return {
       order: 0, // assigned below
@@ -159,10 +162,17 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
     };
   };
 
+  let lastThemeIdx = 0;
   for (const phaseSkills of phases) {
     if (!phaseSkills.length) continue;
     const primaryDepth = Math.max(...phaseSkills.map((id) => depths[id] ?? 0));
-    drafts.push(buildDraft(phaseSkills, { theme: themeForDepth(primaryDepth) }));
+    let themeIdx = DEPTH_THEMES.findIndex((t) => primaryDepth <= t.maxDepth);
+    if (themeIdx === -1) themeIdx = DEPTH_THEMES.length - 1;
+    // PF-19: Enforce monotonic progression: phase themes must never step backward
+    themeIdx = Math.max(themeIdx, lastThemeIdx);
+    lastThemeIdx = themeIdx;
+    const theme = DEPTH_THEMES[themeIdx].theme;
+    drafts.push(buildDraft(phaseSkills, { theme }));
     phaseIndex += 1;
   }
 
@@ -313,7 +323,7 @@ export async function previewScenarios(input: Omit<PathGenerationInput, "scenari
       }
       if (adjacent.length) {
         adjacentCount = 1;
-        adjacentHours = milestoneHours({ skillHours: adjacent.length * 8, hasProject: false, hasQuiz: true });
+        adjacentHours = milestoneHours({ skillHours: adjacent.length * 8, hasProject: true, hasQuiz: true });
       }
     }
 
@@ -322,9 +332,12 @@ export async function previewScenarios(input: Omit<PathGenerationInput, "scenari
       const pIndex = idx + 1;
       const skillMeta = phaseSkills.map((id) => generated.skills.find((s) => s.skillId === id)).filter(Boolean);
       const hours = skillMeta.reduce((sum, s) => sum + (s?.estimatedHours ?? 8), 0);
-      const hasProject = scenario === "intensive"
-        ? pIndex === Math.ceil(phases.length / 2) || pIndex === phases.length
-        : pIndex % 2 === 0 || pIndex === phases.length;
+      const isFinalPhase = adjacentCount === 0 && pIndex === phases.length;
+      const hasProject = scenario === "exploratory" && isFinalPhase
+        ? true
+        : scenario === "intensive"
+          ? pIndex === Math.ceil(phases.length / 2) || pIndex === phases.length
+          : pIndex % 2 === 0 || pIndex === phases.length;
       totalHours += milestoneHours({ skillHours: hours, hasProject, hasQuiz: true });
     });
     totalHours += adjacentHours;

@@ -9,6 +9,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Course, CourseCatalogue, FreeResource, ResourceIndex, SkillGraph, SkillNode } from "./types";
+import { inferCourseLevel } from "./courses";
 import { loadResourceSkillMappingV2, loadVouchedCoursesForSkill } from "@/lib/ml/artifacts";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -69,7 +70,12 @@ export async function loadCatalogue(): Promise<CourseCatalogue> {
   const mapping = JSON.parse(mappingRaw) as RawMapping;
 
   const byId: Record<string, Course> = {};
-  for (const c of courses) byId[c.course_id] = c;
+  for (const c of courses) {
+    if (!c.Level || !c.Level.trim()) {
+      c.Level = inferCourseLevel(c);
+    }
+    byId[c.course_id] = c;
+  }
 
   // A trained run (ml/ bundle) widens skill -> course coverage from 166 to
   // 211 skills. We take its vouched pairs when installed; without a run the

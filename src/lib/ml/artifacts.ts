@@ -124,6 +124,35 @@ export async function loadEquivalenceMap(): Promise<Record<string, string[]>> {
     (map[p.a] ||= []).push(p.b);
     (map[p.b] ||= []).push(p.a);
   }
+
+  // Also include exact name matches across domains from skill_graph.json
+  try {
+    const rawGraphPath = path.join(process.cwd(), "data", "skill_graph.json");
+    const rawGraph = JSON.parse(await fs.readFile(rawGraphPath, "utf-8")) as Record<string, Array<{ id: string; name: string }>>;
+    const byName = new Map<string, string[]>();
+    for (const list of Object.values(rawGraph)) {
+      for (const s of list) {
+        const key = s.name.trim().toLowerCase();
+        if (!byName.has(key)) byName.set(key, []);
+        byName.get(key)!.push(s.id);
+      }
+    }
+    for (const ids of byName.values()) {
+      if (ids.length > 1) {
+        for (const a of ids) {
+          for (const b of ids) {
+            if (a !== b) {
+              if (!map[a]) map[a] = [];
+              if (!map[a].includes(b)) map[a].push(b);
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore if file missing during tests
+  }
+
   return map;
 }
 

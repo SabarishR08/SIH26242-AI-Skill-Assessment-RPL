@@ -6,7 +6,7 @@
 import { computeDepths, inducedEdges } from "./graph";
 import { recommendCourses, resourcesForSkills } from "./courses";
 import { generatePathOptimal, generatePathStandard } from "./topo";
-import { skillHours } from "./time";
+import { skillHours, DEFAULT_TIME_MODEL } from "./time";
 import { loadCatalogue, loadEngineData, loadResources, loadSkillGraph } from "./data";
 import { loadSkillNeighbors } from "@/lib/ml/artifacts";
 import { searchSkillsSemantically } from "@/lib/ml/search";
@@ -61,12 +61,13 @@ export async function buildGeneratedPath(options: BuildPathOptions): Promise<Gen
   const planned = result.orderedSkillIds.map((sid) => {
     const node = graph.skills[sid];
     const months = catalogue.skillMonths[sid] ?? 2;
+    const depth = depths[sid] ?? 0;
     return {
       skillId: sid,
       skillName: node?.name ?? sid,
       domain: node?.domain ?? "General",
-      depth: depths[sid] ?? 0,
-      estimatedHours: skillHours(months),
+      depth,
+      estimatedHours: skillHours(months, DEFAULT_TIME_MODEL, depth),
       courses: recommendCourses(catalogue, sid, { perSkill: coursesPerSkill, evidencedLevel: evidencedLevels[sid] ?? 0 }),
       resources: resourceMap[sid] ?? [],
     };
@@ -114,6 +115,22 @@ const SKILL_SEARCH_LIMIT = 25;
  *   2. the ONNX query encoder + `search_index.json`, when the encoder is
  *      installed, which matches on meaning rather than spelling
  */
+const ACRONYMS: Record<string, string[]> = {
+  ml: ["machine learning"],
+  ai: ["artificial intelligence"],
+  nlp: ["natural language processing"],
+  dl: ["deep learning"],
+  cv: ["computer vision"],
+  db: ["database"],
+  dbms: ["database"],
+  k8s: ["kubernetes"],
+  gcp: ["google cloud"],
+  aws: ["amazon web services"],
+  rl: ["reinforcement learning"],
+  gan: ["generative adversarial"],
+  rag: ["retrieval augmented"],
+};
+
 export async function skillSearch(query: string, domain?: string | null): Promise<SkillHit[]> {
   const graph = await loadSkillGraph();
   const depths = computeDepths(graph);
@@ -127,14 +144,89 @@ export async function skillSearch(query: string, domain?: string | null): Promis
     return { id, name: node.name, domain: node.domain, depth: depths[id] ?? 0, via };
   };
 
-  const byDepthThenName = (a: SkillHit, b: SkillHit) => a.depth - b.depth || a.name.localeCompare(b.name);
+  const tokens = q.split(/\s+/).filter(Boolean);
 
-  const literal = pool
-    .filter((s) => (q ? s.name.toLowerCase().includes(q) : true))
-    .map((s) => hit(s.id, "name"))
-    .filter((h): h is SkillHit => h !== null)
-    .sort(byDepthThenName);
+  // Score candidate skills based on exact phrase, per-token word matching, domain name, and acronyms
+  const scoredCandidates: Array<{ hit: SkillHit; score: number }> = [];
 
+  for (const s of pool) {
+    if (!q) {
+      const h = hit(s.id, "name");
+      if (h) scoredCandidates.push({ hit: h, score: 10 });
+      continue;
+    }
+
+    const name = s.name.toLowerCase();
+    const domainName = (s.domain || "").toLowerCase();
+    const nameWords = name.split(/[\s,()/-]+/).filter(Boolean);
+
+    let score = 0;
+
+    // 1. Exact phrase matches on name
+    if (name === q) {
+      score += 150;
+    } else if (name.startsWith(q)) {
+      score += 100;
+    } else if (name.includes(q)) {
+      score += 70;
+    }
+
+    // 2. Domain matches (e.g. "Generative AI", "AI Engineering")
+    if (domainName === q) {
+      score += 90;
+    } else if (domainName.includes(q)) {
+      score += 60;
+    }
+
+    // 3. Token-by-token matching
+    let tokenMatches = 0;
+    for (const t of tokens) {
+      let matchedThisToken = false;
+
+      // Acronym expansions (e.g. "ml" -> "machine learning")
+      const expansions = ACRONYMS[t];
+      if (expansions) {
+        for (const exp of expansions) {
+          if (name.includes(exp)) {
+            score += 50;
+            matchedThisToken = true;
+            break;
+          }
+        }
+      }
+
+      // Word boundary match in skill name
+      if (nameWords.includes(t)) {
+        score += 35;
+        matchedThisToken = true;
+      } else if (nameWords.some((w) => w.startsWith(t) && t.length >= 3)) {
+        score += 20;
+        matchedThisToken = true;
+      }
+
+      // Domain token match
+      if (domainName.includes(t)) {
+        score += 15;
+        matchedThisToken = true;
+      }
+
+      if (matchedThisToken) tokenMatches++;
+    }
+
+    // Require at least one meaningful token match if multi-word query
+    if (tokens.length > 1 && tokenMatches === 0 && score < 60) {
+      score = 0;
+    }
+
+    if (score > 0) {
+      const h = hit(s.id, "name");
+      if (h) scoredCandidates.push({ hit: h, score });
+    }
+  }
+
+  scoredCandidates.sort((a, b) => b.score - a.score || a.hit.depth - b.hit.depth || a.hit.name.localeCompare(b.hit.name));
+
+  const literal = scoredCandidates.map((s) => s.hit);
   const results: SkillHit[] = literal.slice(0, SKILL_SEARCH_LIMIT);
   const seen = new Set(results.map((r) => r.id));
   if (!q || results.length >= SKILL_SEARCH_LIMIT) return results;

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { fetchGithubProfile, analyzeGithub } from "@/lib/evidence/github";
 import { fuseEvidence, logEvidence } from "@/lib/evidence/fuse";
 import { loadSkillGraph } from "@/lib/engine/data";
@@ -63,6 +63,6 @@ export async function POST(request: Request) {
       assessmentUpdates: updates,
     });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "GitHub ingestion failed", 500);
+    return handleApiError(e, "GitHub ingestion failed");
   }
 }

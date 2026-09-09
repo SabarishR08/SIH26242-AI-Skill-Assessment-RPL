@@ -41,11 +41,13 @@ export interface FusionUpdate {
   changed: boolean;
 }
 
-async function tierForSource(source: SkillEvidenceSource, claim: SkillClaim): Promise<string> {
+async function tierForSource(source: SkillEvidenceSource, claim: SkillClaim, verified = false): Promise<string> {
   if (source === "project") return "proven";
   if (source === "quiz") return "verified";
-  if (source === "leetcode" || source === "codeforces") return "proven";
-  if (source === "github") return claim.strength >= 3 ? "proven" : claim.strength >= 2 ? "inferred" : "inferred";
+  // PF-24: Unverified external handles (GitHub, LeetCode, Codeforces) entered during onboarding without
+  // ownership proof must be downgraded below proven (e.g. claimed or inferred)
+  if (source === "leetcode" || source === "codeforces") return verified ? "proven" : "claimed";
+  if (source === "github") return verified ? "proven" : claim.strength >= 3 ? "claimed" : "inferred";
   if (source === "resume") return claim.strength >= 3 ? "claimed" : "inferred";
   return "claimed"; // interview
 }
@@ -54,17 +56,43 @@ export async function fuseEvidence(
   learnerId: string,
   source: SkillEvidenceSource,
   claims: SkillClaim[],
+  options: { verified?: boolean } = {},
 ): Promise<FusionUpdate[]> {
   const updates: FusionUpdate[] = [];
+  const equivalence = await loadEquivalenceMap();
 
+  // PF-17: Deduplicate incoming claims across equivalent skill clusters:
+  // If claims include both ds_ml_intro and ml_ml, merge them into the best representative claim
+  const clusterMap = new Map<string, SkillClaim>();
   for (const claim of claims) {
     if (claim.level <= 0) continue;
+    const cluster = [claim.skillId, ...(equivalence[claim.skillId] || [])].sort();
+    const clusterKey = cluster[0];
+
+    const prev = clusterMap.get(clusterKey);
+    if (!prev) {
+      clusterMap.set(clusterKey, { ...claim });
+    } else {
+      prev.level = Math.max(prev.level, claim.level);
+      prev.strength = Math.max(prev.strength, claim.strength);
+      if (claim.quote && !prev.quote.includes(claim.quote)) {
+        prev.quote = `${prev.quote} | ${claim.quote}`.slice(0, 400);
+      }
+    }
+  }
+  const effectiveClaims = Array.from(clusterMap.values());
+
+  for (const claim of effectiveClaims) {
     const existing = await db.skillAssessment.findUnique({
       where: { learnerId_skillId: { learnerId, skillId: claim.skillId } },
     });
 
-    const sourceTier = await tierForSource(source, claim);
-    const sourceConf = SOURCE_CONFIDENCE[source] * (0.6 + 0.08 * claim.strength);
+    const sourceTier = await tierForSource(source, claim, options.verified);
+    const baseConf = SOURCE_CONFIDENCE[source];
+    const adjustedConf = (!options.verified && (source === "github" || source === "leetcode" || source === "codeforces"))
+      ? baseConf * 0.75
+      : baseConf;
+    const sourceConf = adjustedConf * (0.6 + 0.08 * claim.strength);
     // Self-reported sources (interview, resume) only ever set the CLAIMED
     // level — evidence must come from artefacts (GitHub, quizzes, projects).
     // Without this separation the claims-vs-evidence calibration loop is dead.

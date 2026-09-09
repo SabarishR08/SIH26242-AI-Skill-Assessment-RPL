@@ -390,7 +390,7 @@ export default function DashboardPage() {
                 <div key={s.name} className="flex items-center justify-between gap-2 text-xs">
                   <span className="truncate">{s.name}</span>
                   <span className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-muted-foreground">{s.claimed}/{s.evidenced}</span>
+                    <span className="text-muted-foreground">Lvl {s.tier === "claimed" ? s.claimed : s.evidenced}/5</span>
                     <TierBadge tier={s.tier} />
                   </span>
                 </div>

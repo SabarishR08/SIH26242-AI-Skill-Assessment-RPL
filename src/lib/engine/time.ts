@@ -28,14 +28,19 @@ export interface TimeModelConstants {
 export const DEFAULT_TIME_MODEL: TimeModelConstants = {
   hoursPerMonth: 14,
   minSkillHours: 6,
-  maxSkillHours: 56,
+  maxSkillHours: 120,
   projectHours: 8,
   quizHours: 1,
   pacingFactor: 1,
 };
 
-export function skillHours(months: number, model: TimeModelConstants = DEFAULT_TIME_MODEL): number {
-  const raw = (Number.isFinite(months) && months > 0 ? months : 2) * model.hoursPerMonth;
+export function skillHours(
+  months: number,
+  model: TimeModelConstants = DEFAULT_TIME_MODEL,
+  depth = 0,
+): number {
+  const m = Number.isFinite(months) && months > 0 ? months : 2;
+  const raw = m * model.hoursPerMonth + (depth > 0 ? depth * 4 : 0);
   return Math.round(Math.min(model.maxSkillHours, Math.max(model.minSkillHours, raw)) * model.pacingFactor);
 }
 

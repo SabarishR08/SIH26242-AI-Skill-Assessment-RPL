@@ -1,5 +1,5 @@
 import { skillSearch } from "@/lib/engine";
-import { apiError, json } from "@/lib/api-helpers";
+import { apiError, handleApiError, json } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +12,6 @@ export async function GET(request: Request) {
     const hits = await skillSearch(query, domain);
     return json({ hits });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to search skills", 500);
+    return handleApiError(e, "Failed to search skills");
   }
 }

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { fetchLeetCodeStats, leetCodeClaims } from "@/lib/evidence/competitive";
 import { fuseEvidence, logEvidence } from "@/lib/evidence/fuse";
 
@@ -35,6 +35,6 @@ export async function POST(request: Request) {
 
     return json({ stats, claims, assessmentUpdates: updates });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "LeetCode ingestion failed", 500);
+    return handleApiError(e, "LeetCode ingestion failed");
   }
 }
