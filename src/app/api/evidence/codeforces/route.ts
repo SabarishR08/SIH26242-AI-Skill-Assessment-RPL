@@ -14,7 +14,12 @@ interface Body {
 export async function POST(request: Request) {
   try {
     const body = await readJson<Body>(request);
-    const handle = (body.handle || "").trim().replace(/^@/, "");
+    const handle = (body.handle || "")
+      .trim()
+      .replace(/^@/, "")
+      .replace(/^(https?:\/\/)?(www\.)?codeforces\.com\/(profile\/)?/i, "")
+      .replace(/\/.*$/, "")
+      .trim();
     if (!body.learnerId || !handle) return apiError("learnerId and handle are required");
 
     const learner = await db.learner.findUnique({ where: { id: body.learnerId } });

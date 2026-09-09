@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { useLearner } from "@/hooks/use-learner";
 import { api, type DashboardData } from "@/lib/client-api";
+import { markdownToHtml } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -254,7 +255,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Header stats */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6 min-w-0 max-w-full">
         <Card className="glass-card">
           <CardContent className="pt-5 pb-4">
             <div className="flex items-center justify-between">
@@ -314,7 +315,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3 mb-6">
+      <div className="grid gap-4 lg:grid-cols-3 mb-6 min-w-0 max-w-full">
         {/* Next best actions */}
         <Card className="glass-card">
           <CardHeader className="pb-2">
@@ -429,7 +430,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Weekly coach + activity */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 min-w-0 max-w-full">
         <Card className="glass-card">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -513,25 +514,4 @@ function TierBadge({ tier }: { tier: string }) {
   };
   const s = map[tier] ?? map.none;
   return <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0", s.className)}>{s.label}</Badge>;
-}
-
-/** Minimal, safe markdown → HTML (bold, headers, lists, paragraphs only). */
-function markdownToHtml(md: string): string {
-  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return md
-    .split(/\n\n+/)
-    .map((block) => {
-      const lines = block.split("\n");
-      if (lines.every((l) => l.trim().startsWith("-"))) {
-        return `<ul>${lines.map((l) => `<li>${inline(escape(l.replace(/^\s*-\s*/, "")))}</li>`).join("")}</ul>`;
-      }
-      if (block.startsWith("## ")) return `<h2>${inline(escape(block.slice(3)))}</h2>`;
-      if (block.startsWith("# ")) return `<h2>${inline(escape(block.slice(2)))}</h2>`;
-      return `<p>${inline(escape(block))}</p>`;
-    })
-    .join("");
-}
-
-function inline(s: string): string {
-  return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>");
 }

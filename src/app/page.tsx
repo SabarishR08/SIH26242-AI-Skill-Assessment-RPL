@@ -41,11 +41,13 @@ export default function LandingPage() {
           </div>
           
           <h1 className="text-5xl sm:text-7xl font-bold tracking-tight leading-[1.05] text-gradient">
-            Nexus: The AI Learning Coach
+            PathFinder AI
           </h1>
-          
-          <p className="mt-4 text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            A hackathon experiment in evidence-based learning. Nexus audits your GitHub, calibrates your skills, and generates a personalized roadmap.
+          <p className="text-lg sm:text-xl font-medium text-primary/90 -mt-2">
+            Powered by Nexus, Your Evidence-Based AI Learning Coach
+          </p>
+          <p className="mt-2 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            An evidence-based learning system that audits your code and resume, calibrates your skills, and synthesizes a mathematically optimal prerequisite roadmap.
           </p>
           
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">

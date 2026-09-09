@@ -14,7 +14,12 @@ interface Body {
 export async function POST(request: Request) {
   try {
     const body = await readJson<Body>(request);
-    const username = (body.username || "").trim().replace(/^@/, "").replace(/^https?:\/\/leetcode\.com\/u?\//, "").replace(/\/.*$/, "");
+    const username = (body.username || "")
+      .trim()
+      .replace(/^@/, "")
+      .replace(/^(https?:\/\/)?(www\.)?leetcode\.com\/(u\/)?/i, "")
+      .replace(/\/.*$/, "")
+      .trim();
     if (!body.learnerId || !username) return apiError("learnerId and username are required");
 
     const learner = await db.learner.findUnique({ where: { id: body.learnerId } });

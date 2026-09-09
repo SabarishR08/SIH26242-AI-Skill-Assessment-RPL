@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json } from "@/lib/api-helpers";
+import { apiError, handleApiError, json } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +8,10 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const learnerId = url.searchParams.get("learnerId");
-    if (!learnerId) return apiError("learnerId is required");
+    if (!learnerId) return apiError("learnerId is required", 400);
+
+    const learner = await db.learner.findUnique({ where: { id: learnerId } });
+    if (!learner) return apiError("Learner not found", 404);
 
     const evidence = await db.evidenceItem.findMany({
       where: { learnerId },
@@ -29,6 +32,6 @@ export async function GET(request: Request) {
       })),
     });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to list evidence", 500);
+    return handleApiError(e, "Failed to list evidence");
   }
 }

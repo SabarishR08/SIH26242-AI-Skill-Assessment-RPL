@@ -16,7 +16,12 @@ interface Body {
 export async function POST(request: Request) {
   try {
     const body = await readJson<Body>(request);
-    const username = (body.username || "").trim().replace(/^@/, "").replace(/^https?:\/\/github\.com\//, "").replace(/\/.*$/, "");
+    const username = (body.username || "")
+      .trim()
+      .replace(/^@/, "")
+      .replace(/^(https?:\/\/)?(www\.)?github\.com\//i, "")
+      .replace(/\/.*$/, "")
+      .trim();
     if (!body.learnerId || !username) return apiError("learnerId and username are required");
 
     const learner = await db.learner.findUnique({ where: { id: body.learnerId } });

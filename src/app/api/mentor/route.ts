@@ -19,6 +19,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const learnerId = url.searchParams.get("learnerId");
     if (!learnerId) return apiError("learnerId is required");
+    const learner = await db.learner.findUnique({ where: { id: learnerId } });
+    if (!learner) return apiError("Learner not found", 404);
     const messages = await db.mentorMessage.findMany({
       where: { learnerId },
       orderBy: { createdAt: "asc" },
@@ -40,6 +42,8 @@ export async function POST(request: Request) {
   try {
     const body = await readJson<Body>(request);
     if (!body.learnerId || !body.message?.trim()) return apiError("learnerId and message are required");
+    const learner = await db.learner.findUnique({ where: { id: body.learnerId } });
+    if (!learner) return apiError("Learner not found", 404);
 
     const generator = (async function* () {
       for await (const chunk of streamMentorReply(body.learnerId, body.message.trim(), body.socratic === true)) {

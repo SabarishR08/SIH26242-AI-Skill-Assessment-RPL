@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useLearner } from "@/hooks/use-learner";
 import { api, streamMentorMessage } from "@/lib/client-api";
+import { markdownToHtml } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import { Send, Loader2, BrainCircuit, MessageSquare } from "lucide-react";
 
@@ -131,20 +132,29 @@ export default function MentorPage() {
             )}
             {history.map((m, i) => (
               <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-                <div
-                  className={cn(
-                    "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
-                    m.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-secondary rounded-bl-md",
-                  )}
-                >
-                  {m.content}
-                </div>
+                {m.role === "user" ? (
+                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground whitespace-pre-wrap">
+                    {m.content}
+                  </div>
+                ) : (
+                  <div
+                    className="max-w-[85%] rounded-2xl rounded-bl-md bg-secondary px-4 py-2.5 text-sm leading-relaxed text-foreground [&_pre]:overflow-x-auto"
+                    dangerouslySetInnerHTML={{ __html: markdownToHtml(m.content) }}
+                  />
+                )}
               </div>
             ))}
             {streaming && (
               <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-secondary px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
-                  {streamText || <span className="stream-caret" />}
+                <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-secondary px-4 py-2.5 text-sm leading-relaxed text-foreground [&_pre]:overflow-x-auto">
+                  {streamText ? (
+                    <>
+                      <div dangerouslySetInnerHTML={{ __html: markdownToHtml(streamText) }} />
+                      <span className="stream-caret ml-0.5 inline-block" />
+                    </>
+                  ) : (
+                    <span className="stream-caret" />
+                  )}
                 </div>
               </div>
             )}

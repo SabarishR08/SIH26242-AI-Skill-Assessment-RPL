@@ -104,5 +104,22 @@ export function computeRadar(
       required: Math.round(avg(bands[band].r) * 10) / 10,
     }));
 
+  // PF-30: Recharts Radar requires at least 3 axes to render a 2D polygon rather than collapsing to a line
+  if (points.length > 0 && axes.length < 3) {
+    const existingAxes = new Set(axes.map((a) => a.axis));
+    for (let i = 0; i < bandLabels.length && axes.length < 3; i++) {
+      const label = bandLabels[i];
+      if (!existingAxes.has(label)) {
+        axes.push({
+          axis: label,
+          claimed: 0,
+          evidenced: 0,
+          required: requiredLevelForDepth(i * 2),
+        });
+        existingAxes.add(label);
+      }
+    }
+  }
+
   return { points, axes };
 }
