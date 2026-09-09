@@ -189,7 +189,10 @@ export async function GET(request: Request) {
       quizzesPassed: passedQuizzes
         .slice()
         .sort((a, b) => a.id.localeCompare(b.id))
-        .map((q) => ({ id: q.id, skillId: q.skillId, score: q.score })),
+        .map((q) => {
+          const bestScore = q.attempts.length ? Math.max(...q.attempts.map((a) => a.score)) : null;
+          return { id: q.id, skillId: q.skillId, score: bestScore };
+        }),
     };
 
     const canonicalSubjectStr = JSON.stringify(canonicalSubject);

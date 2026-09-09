@@ -86,13 +86,19 @@ function parsePythonList(raw: string): string[] {
     .filter(Boolean);
 }
 
-/** "Approximately 3 months to complete" -> 3 */
+/** Parse duration into month equivalent: "Approx. 26 hours" -> 1.86, "Approximately 3 months" -> 3 */
 function parseDurationMonths(raw: string): number | null {
   if (!raw) return null;
   const m = raw.match(/(\d+(?:\.\d+)?)/);
   if (!m) return null;
   const n = parseFloat(m[1]);
-  return Number.isFinite(n) ? n : null;
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const lower = raw.toLowerCase();
+  if (lower.includes("hour")) return Math.max(0.2, Number((n / 14).toFixed(2)));
+  if (lower.includes("week")) return Math.max(0.2, Number((n / 4).toFixed(2)));
+  if (lower.includes("month")) return n;
+  if (n > 12) return Math.max(0.2, Number((n / 14).toFixed(2)));
+  return n;
 }
 
 function toNumber(raw: string): number | null {

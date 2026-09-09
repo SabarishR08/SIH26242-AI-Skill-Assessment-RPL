@@ -68,7 +68,7 @@ export function AppShell({
           ) : null}
         </div>
       </header>
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 overflow-x-hidden">{children}</main>
+      <main className="flex-1 mx-auto w-full max-w-7xl px-3 sm:px-6 py-6 overflow-x-hidden min-w-0">{children}</main>
       <footer className="border-t border-white/5 bg-black/40 py-4 mt-auto">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 flex items-center justify-between text-xs text-muted-foreground">
           <span>PathFinder — built for the AI hackathon</span>
