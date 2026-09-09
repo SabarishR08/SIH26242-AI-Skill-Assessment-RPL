@@ -58,7 +58,7 @@ function resolveProviders(): Provider[] {
   if (groqKey) {
     providers.push({
       name: "groq",
-      model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
       baseUrl: process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1",
       apiKey: groqKey,
     });

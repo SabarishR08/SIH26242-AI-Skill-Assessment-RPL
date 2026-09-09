@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       where: { learnerId: body.learnerId, milestoneId: body.milestoneId, kind: "milestone_gate", status: "pending" },
       include: { questions: true },
     });
-    if (existing) {
+    if (existing && existing.questions.length > 0) {
       const ordered = [...existing.questions].sort((a, b) => a.order - b.order);
       return json({
         quiz: {
@@ -35,6 +35,10 @@ export async function POST(request: Request) {
           })),
         },
       });
+    }
+
+    if (existing && existing.questions.length === 0) {
+      await db.quiz.delete({ where: { id: existing.id } });
     }
 
     const created = await createGateQuiz(body.learnerId, body.milestoneId);

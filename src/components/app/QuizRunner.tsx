@@ -124,7 +124,18 @@ export function QuizRunner({
     );
   }
 
+  if (!quiz.questions || quiz.questions.length === 0) {
+    return (
+      <Card className="glass-card">
+        <CardContent className="pt-6 text-center space-y-4">
+          <p className="text-muted-foreground">No questions available for this quiz.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const q = quiz.questions[current];
+  if (!q) return null;
   return (
     <Card className="glass-card">
       <CardHeader className="pb-3">

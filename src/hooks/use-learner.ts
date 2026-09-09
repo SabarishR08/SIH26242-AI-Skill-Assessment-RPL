@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "pathfinder.learnerId";
 
@@ -32,7 +32,12 @@ function getServerSnapshot(): string | null {
 
 /** Learner identity: localStorage-backed, no-auth demo model. SSR-safe via useSyncExternalStore. */
 export function useLearner() {
-  const learnerId = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const [mounted, setMounted] = useState(false);
+  const storeValue = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const setLearnerId = useCallback((id: string | null) => {
     if (typeof window === "undefined") return;
@@ -41,5 +46,9 @@ export function useLearner() {
     emit();
   }, []);
 
-  return { learnerId, setLearnerId, hydrated: true };
+  return {
+    learnerId: mounted ? storeValue : null,
+    setLearnerId,
+    hydrated: mounted,
+  };
 }

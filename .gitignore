@@ -45,3 +45,7 @@ dist/
 # Runtime encoder: 34 MB of quantized ONNX, installed from a training run
 # with `npm run ml:install-encoder`. The app degrades gracefully without it.
 data/ml/encoder/
+Trained_model/
+ml/trained/
+test-results/
+

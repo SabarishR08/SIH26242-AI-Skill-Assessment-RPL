@@ -42,7 +42,8 @@ export function mlDir(): string {
 const cache = new Map<string, unknown>();
 
 async function readOptional<T>(name: string): Promise<T | null> {
-  const key = path.join(mlDir(), name);
+  const dir = process.env.PATHFINDER_ML_DIR;
+  const key = dir ? path.join(dir, name) : path.join(process.cwd(), "data", "ml", name);
   if (cache.has(key)) return cache.get(key) as T | null;
   let value: T | null = null;
   try {

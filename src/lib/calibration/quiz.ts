@@ -15,7 +15,7 @@
  */
 import { db } from "@/lib/db";
 import { chatJson, asArray, asString, asInt } from "@/lib/ai/llm";
-import { loadSkillGraph, loadCatalogue } from "@/lib/engine/data";
+import { loadSkillGraph, loadCatalogue, loadResources } from "@/lib/engine/data";
 import { ancestorClosure } from "@/lib/engine/graph";
 import { applyQuizVerdict } from "@/lib/evidence/fuse";
 
@@ -149,6 +149,48 @@ async function generateQuestionsDeterministic(skillId: string): Promise<QuizQues
     }
   }
 
+  // Q3-Q4: curated free resources for skills where course catalogue has no matches
+  if (drafts.length < 4) {
+    const resources = await loadResources();
+    const freeRes = resources.bySkill[skillId] ?? [];
+    for (const r of freeRes) {
+      if (drafts.length >= 4) break;
+      const distractors = resources.resources
+        .filter((other) => other.resource_id !== r.resource_id)
+        .slice(0, 3)
+        .map((other) => other.title);
+      if (distractors.length >= 2) {
+        drafts.push({
+          prompt: `Which learning resource provides foundational coverage for ${node.name}?\n\n"${r.description_raw}"`,
+          options: [r.title, ...distractors].slice(0, 4),
+          correctIndex: 0,
+          explanation: `"${r.title}" is the designated resource covering ${node.name}.`,
+          skillFocus: "Core concepts",
+        });
+      }
+    }
+  }
+
+  // Fallback: domain competency questions if graph and catalogue are sparse
+  if (drafts.length < 4) {
+    const siblingSkills = Object.values(graph.skills)
+      .filter((s) => s.domain === node.domain && s.id !== node.id)
+      .slice(0, 3)
+      .map((s) => s.name);
+    if (siblingSkills.length >= 2) {
+      drafts.push({
+        prompt: `In the domain of ${node.domain}, what is the primary role of ${node.name}?`,
+        options: [
+          `Establishing core competency and practical implementation of ${node.name}`,
+          ...siblingSkills.map((s) => `Serving strictly as an alternative replacement for ${s}`),
+        ].slice(0, 4),
+        correctIndex: 0,
+        explanation: `${node.name} is an essential competency within ${node.domain}.`,
+        skillFocus: "Domain context",
+      });
+    }
+  }
+
   return drafts.slice(0, 4);
 }
 
@@ -269,9 +311,12 @@ Return JSON: array of 4 objects {"prompt", "options": [4 strings], "correctIndex
 
 async function generateQuestionsDeterministicMulti(skillIds: string[]): Promise<QuizQuestionDraft[]> {
   const drafts: QuizQuestionDraft[] = [];
-  for (const sid of skillIds.slice(0, 4)) {
+  for (const sid of skillIds) {
     const qs = await generateQuestionsDeterministic(sid);
-    drafts.push(...qs.slice(0, 1));
+    for (const q of qs) {
+      drafts.push(q);
+      if (drafts.length >= 4) return drafts;
+    }
   }
   return drafts.slice(0, 4);
 }
