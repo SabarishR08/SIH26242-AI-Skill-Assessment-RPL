@@ -109,18 +109,28 @@ describe("/api/quiz/gate POST", () => {
       body: "not-json",
     });
     const res = await POST(req);
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error).toBeDefined();
   });
 
-  it("returns 500 when createGateQuiz throws", async () => {
+  it("returns 404 when milestone not found", async () => {
     mockDb.quiz.findFirst.mockResolvedValue(null);
     mockCreateGateQuiz.mockRejectedValue(new Error("Milestone not found"));
 
     const res = await POST(makeRequest({ learnerId: "l1", milestoneId: "m1" }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(404);
     const data = await res.json();
     expect(data.error).toBe("Milestone not found");
+  });
+
+  it("returns 500 when createGateQuiz throws database error", async () => {
+    mockDb.quiz.findFirst.mockResolvedValue(null);
+    mockCreateGateQuiz.mockRejectedValue(new Error("Database failure"));
+
+    const res = await POST(makeRequest({ learnerId: "l1", milestoneId: "m1" }));
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error).toBe("Database failure");
   });
 });

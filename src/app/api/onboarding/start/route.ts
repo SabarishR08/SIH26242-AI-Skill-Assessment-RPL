@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +10,21 @@ interface StartBody {
 
 /** Create a learner + agent state; returns the interview opening message. */
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 30, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
-    const body = await readJson<StartBody>(request).catch(() => ({}) as StartBody);
-    const name = (body.name || "").trim().slice(0, 60) || "Learner";
+    let body: StartBody = {};
+    try {
+      body = await request.json();
+    } catch {
+      // Body is optional; default name will be used
+    }
+
+    if (body && body.name !== undefined && typeof body.name !== "string") {
+      return apiError("name must be a string", 400);
+    }
+    const name = (body?.name || "").trim().slice(0, 60) || "Learner";
 
     const learner = await db.learner.create({
       data: {
@@ -48,6 +61,6 @@ export async function POST(request: Request) {
       greeting,
     });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to start onboarding", 500);
+    return handleApiError(e, "Failed to start onboarding");
   }
 }

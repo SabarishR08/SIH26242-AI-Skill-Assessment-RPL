@@ -59,19 +59,21 @@ export async function fuseEvidence(
   options: { verified?: boolean } = {},
 ): Promise<FusionUpdate[]> {
   const updates: FusionUpdate[] = [];
+  const graph = await loadSkillGraph();
   const equivalence = await loadEquivalenceMap();
 
   // PF-17: Deduplicate incoming claims across equivalent skill clusters:
-  // If claims include both ds_ml_intro and ml_ml, merge them into the best representative claim
+  // Map every claim to its canonical skill ID so assessment rows do not fragment across domain prefixes
   const clusterMap = new Map<string, SkillClaim>();
   for (const claim of claims) {
     if (claim.level <= 0) continue;
     const cluster = [claim.skillId, ...(equivalence[claim.skillId] || [])].sort();
     const clusterKey = cluster[0];
+    const canonicalName = graph.skills[clusterKey]?.name ?? claim.skillName;
 
     const prev = clusterMap.get(clusterKey);
     if (!prev) {
-      clusterMap.set(clusterKey, { ...claim });
+      clusterMap.set(clusterKey, { ...claim, skillId: clusterKey, skillName: canonicalName });
     } else {
       prev.level = Math.max(prev.level, claim.level);
       prev.strength = Math.max(prev.strength, claim.strength);
@@ -83,9 +85,16 @@ export async function fuseEvidence(
   const effectiveClaims = Array.from(clusterMap.values());
 
   for (const claim of effectiveClaims) {
-    const existing = await db.skillAssessment.findUnique({
-      where: { learnerId_skillId: { learnerId, skillId: claim.skillId } },
+    const cluster = [claim.skillId, ...(equivalence[claim.skillId] || [])];
+    const existing = await db.skillAssessment.findFirst({
+      where: {
+        learnerId,
+        skillId: { in: cluster },
+      },
     });
+
+    const targetSkillId = existing ? existing.skillId : claim.skillId;
+    const targetSkillName = existing ? existing.skillName : claim.skillName;
 
     const sourceTier = await tierForSource(source, claim, options.verified);
     const baseConf = SOURCE_CONFIDENCE[source];
@@ -103,8 +112,8 @@ export async function fuseEvidence(
       await db.skillAssessment.create({
         data: {
           learnerId,
-          skillId: claim.skillId,
-          skillName: claim.skillName,
+          skillId: targetSkillId,
+          skillName: targetSkillName,
           claimedLevel: isSelfReport ? claim.level : 0,
           evidencedLevel: isSelfReport ? 0 : claim.level,
           tier: isSelfReport ? "claimed" : sourceTier,
@@ -114,8 +123,8 @@ export async function fuseEvidence(
         },
       });
       updates.push({
-        skillId: claim.skillId,
-        skillName: claim.skillName,
+        skillId: targetSkillId,
+        skillName: targetSkillName,
         before: null,
         after: { level: claim.level, tier: sourceTier, confidence: conf },
         changed: true,
@@ -278,8 +287,8 @@ export async function transferAcrossEquivalents(
       );
       if (!merged) continue;
 
-      const note = `Carried over from "${update.skillName}" (same skill in another domain)`;
       if (existing) {
+        const note = `Carried over from "${update.skillName}" (same skill in another domain)`;
         await db.skillAssessment.update({
           where: { id: existing.id },
           data: {
@@ -289,28 +298,15 @@ export async function transferAcrossEquivalents(
               merged.tier === "proven" || merged.tier === "verified" ? new Date() : existing.lastVerifiedAt,
           },
         });
-      } else {
-        await db.skillAssessment.create({
-          data: {
-            learnerId,
-            skillId: twinId,
-            skillName: twinNode.name,
-            ...merged,
-            notes: note,
-            lastVerifiedAt: merged.tier === "proven" || merged.tier === "verified" ? new Date() : null,
-          },
+
+        mirrored.push({
+          skillId: twinId,
+          skillName: twinNode.name,
+          before: { level: existing.evidencedLevel, tier: existing.tier, confidence: existing.confidence },
+          after: { level: merged.evidencedLevel, tier: merged.tier, confidence: merged.confidence },
+          changed: true,
         });
       }
-
-      mirrored.push({
-        skillId: twinId,
-        skillName: twinNode.name,
-        before: existing
-          ? { level: existing.evidencedLevel, tier: existing.tier, confidence: existing.confidence }
-          : null,
-        after: { level: merged.evidencedLevel, tier: merged.tier, confidence: merged.confidence },
-        changed: true,
-      });
     }
   }
   return mirrored;

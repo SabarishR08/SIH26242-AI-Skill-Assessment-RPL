@@ -213,23 +213,28 @@ export async function persistAgentTurn(
     merged.constraints = [...new Set([...(merged.constraints ?? []), ...extractedNew.constraints])].slice(0, 10);
   }
 
-  const roundsInPhase = history.filter((h, i) => h.role === "user" && i >= history.length - 6).length;
+  const currentRounds = state.roundsCompleted ?? 0;
   let phase = state.phase as AgentPhase;
 
-  if ((isPhaseComplete || wantsSkip) && phase !== "done") {
+  // PF-03: Transition phase when LLM indicates completion, when user skips,
+  // or when 2+ user exchanges have occurred in this phase to prevent interview stalls.
+  const shouldAdvance = (isPhaseComplete || wantsSkip || currentRounds >= 2) && phase !== "done";
+  if (shouldAdvance) {
     const idx = PHASE_ORDER.indexOf(phase);
     if (idx >= 0 && idx < PHASE_ORDER.length - 1) {
       phase = PHASE_ORDER[idx + 1];
     }
   }
 
+  const phaseChanged = phase !== state.phase;
+  const roundsInPhase = (phaseChanged || wantsSkip) ? 0 : currentRounds + 1;
   await db.agentState.update({
     where: { learnerId },
     data: {
       phase,
       historyJson: JSON.stringify(history.slice(-30)),
       extractedJson: JSON.stringify(merged),
-      roundsCompleted: wantsSkip ? 0 : state.roundsCompleted + 1,
+      roundsCompleted: roundsInPhase,
     },
   });
 

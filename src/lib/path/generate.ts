@@ -14,7 +14,7 @@
 import { db } from "@/lib/db";
 import { buildGeneratedPath, computeDepths, phasePartitions } from "@/lib/engine";
 import { scheduleMilestones, milestoneHours } from "@/lib/engine/time";
-import { loadSkillNeighbors } from "@/lib/ml/artifacts";
+import { loadSkillNeighbors, loadEquivalenceMap } from "@/lib/ml/artifacts";
 import type { MilestoneDraft } from "./types";
 
 export type Scenario = "balanced" | "intensive" | "exploratory";
@@ -283,10 +283,23 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
 /** The set of skills the engine treats as already known. */
 export async function knownSkillIdsFor(learnerId: string): Promise<{ known: string[]; levels: Record<string, number> }> {
   const assessments = await db.skillAssessment.findMany({ where: { learnerId } });
-  const known = assessments.filter((a) => a.evidencedLevel >= 3).map((a) => a.skillId);
+  const equivalence = await loadEquivalenceMap();
+  const knownSet = new Set<string>();
   const levels: Record<string, number> = {};
-  for (const a of assessments) levels[a.skillId] = a.evidencedLevel;
-  return { known, levels };
+
+  for (const a of assessments) {
+    levels[a.skillId] = a.evidencedLevel;
+    if (a.evidencedLevel >= 3) {
+      knownSet.add(a.skillId);
+      for (const twin of equivalence[a.skillId] ?? []) {
+        knownSet.add(twin);
+        if (!levels[twin] || a.evidencedLevel > levels[twin]) {
+          levels[twin] = a.evidencedLevel;
+        }
+      }
+    }
+  }
+  return { known: Array.from(knownSet), levels };
 }
 
 /** Scenario preview (no persistence) for the scenario picker UI. */

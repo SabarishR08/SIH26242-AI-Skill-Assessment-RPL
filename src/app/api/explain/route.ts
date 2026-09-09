@@ -1,5 +1,6 @@
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { explainSkill, explainCourse, explainProject } from "@/lib/explain";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -13,6 +14,9 @@ interface Body {
 
 /** Evidence-cited explanations for any recommendation. */
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 30, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const body = await readJson<Body>(request);
     if (!body.learnerId || !body.subject || !body.id) {
@@ -27,6 +31,6 @@ export async function POST(request: Request) {
 
     return json({ explanation });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to explain", 500);
+    return handleApiError(e, "Failed to explain");
   }
 }

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { fetchCodeforcesStats, codeforcesClaims } from "@/lib/evidence/competitive";
 import { fuseEvidence, logEvidence } from "@/lib/evidence/fuse";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -12,6 +13,9 @@ interface Body {
 }
 
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 30, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const body = await readJson<Body>(request);
     const handle = (body.handle || "")

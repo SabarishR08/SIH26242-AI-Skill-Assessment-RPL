@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { generatePath, knownSkillIdsFor, type Scenario } from "@/lib/path/generate";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,6 +15,9 @@ interface Body {
 
 /** Generate and persist the selected scenario as the active path. */
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 20, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const body = await readJson<Body>(request);
     if (!body.learnerId) return apiError("learnerId is required");
@@ -46,6 +50,6 @@ export async function POST(request: Request) {
 
     return json({ ...outcome, scenario });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to generate path", 500);
+    return handleApiError(e, "Failed to generate path");
   }
 }

@@ -193,15 +193,30 @@ describe("persistAgentTurn", () => {
     expect(updateCall.data.roundsCompleted).toBe(0);
   });
 
-  it("increments roundsCompleted when not skipping", async () => {
+  it("increments roundsCompleted when staying in phase", async () => {
     const { persistAgentTurn } = await import("./agent");
-    const state = makeAgentState({ roundsCompleted: 3 });
+    const state = makeAgentState({ roundsCompleted: 0 });
     mockDb.agentState.findUnique.mockResolvedValue(state);
 
     await persistAgentTurn("learner-1", "answer", "Reply", {}, false);
 
     const updateCall = mockDb.agentState.update.mock.calls[0][0];
-    expect(updateCall.data.roundsCompleted).toBe(4);
+    expect(updateCall.data.roundsCompleted).toBe(1);
+    expect(updateCall.data.phase).toBe("intro");
+  });
+
+  it("forces phase advancement after 2 rounds in a phase to prevent stalling (PF-03)", async () => {
+    const { persistAgentTurn } = await import("./agent");
+    const state = makeAgentState({ phase: "goal", roundsCompleted: 2 });
+    mockDb.agentState.findUnique.mockResolvedValue(state);
+
+    const res = await persistAgentTurn("learner-1", "deep learning and transformers", "Great!", {}, false);
+
+    const updateCall = mockDb.agentState.update.mock.calls[0][0];
+    // Must advance from goal to background and reset roundsCompleted to 0
+    expect(updateCall.data.phase).toBe("background");
+    expect(updateCall.data.roundsCompleted).toBe(0);
+    expect(res.phase).toBe("background");
   });
 
   it("maps phase to correct onboardingStage", async () => {
