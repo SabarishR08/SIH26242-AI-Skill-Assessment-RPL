@@ -99,7 +99,7 @@ export async function runAgentStream(learnerId: string, userMessage: string) {
   ];
 
   const useGateway = Boolean(process.env.AI_GATEWAY_API_KEY);
-  const model = process.env.GROQ_MODEL || (useGateway ? "openai/gpt-oss-120b" : "llama-3.3-70b-versatile");
+  const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
   const baseUrl = process.env.GROQ_BASE_URL
     || (useGateway ? "https://ai-gateway.vercel.sh/v1" : "https://api.groq.com/openai/v1");
   const authToken = useGateway ? process.env.AI_GATEWAY_API_KEY : process.env.GROQ_API_KEY;

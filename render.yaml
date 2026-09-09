@@ -7,8 +7,6 @@ services:
     startCommand: npm run start
     healthCheckPath: /api/health
     envVars:
-      - key: NODE_VERSION
-        value: 22.14.0
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
@@ -16,6 +14,6 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_MODEL
-        value: llama-3.3-70b-versatile
+        value: openai/gpt-oss-120b
       - key: GITHUB_TOKEN
         sync: false
