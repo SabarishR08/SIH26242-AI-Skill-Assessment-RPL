@@ -74,79 +74,198 @@ async function ghGet<T>(path: string): Promise<T | null> {
 
 const CODE_EXTENSIONS = [".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs", ".cpp", ".c", ".rb", ".php", ".sql", ".ipynb", ".sh", ".html", ".css"];
 
-export async function fetchRepoEvidence(repoUrl: string): Promise<RepoEvidence> {
-  const { owner, repo } = parseRepoUrl(repoUrl);
+async function fetchRepoEvidenceFallback(owner: string, repo: string): Promise<RepoEvidence> {
+  const webRes = await fetch(`https://github.com/${owner}/${repo}`, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      Accept: "text/html,application/xhtml+xml",
+    },
+  });
 
-  const meta = await ghGet<{
-    name: string;
-    description: string | null;
-    default_branch: string;
-    stargazers_count: number;
-    pushed_at: string | null;
-  }>(`/repos/${owner}/${repo}`);
-  if (!meta) throw new Error(`Repository not found or not accessible: ${owner}/${repo}. Check the URL (public repos only).`);
-
-  const [languages, tree, readme] = await Promise.all([
-    ghGet<Record<string, number>>(`/repos/${owner}/${repo}/languages`),
-    ghGet<{ tree: Array<{ path: string; type: string; size?: number }> }>(
-      `/repos/${owner}/${repo}/git/trees/${meta.default_branch}?recursive=1`,
-    ),
-    ghGet<{ content: string; encoding: string }>(`/repos/${owner}/${repo}/readme`),
-  ]);
-
-  const fileTree = (tree?.tree ?? []).filter((n) => n.type === "blob").map((n) => n.path);
-
-  // Pick up to 5 substantive source files to review (prefer small-ish, path-diverse).
-  const candidates = fileTree
-    .filter((p) => CODE_EXTENSIONS.some((ext) => p.endsWith(ext)))
-    .filter((p) => !p.includes("node_modules/") && !p.includes(".min."))
-    .sort((a, b) => a.split("/").length - b.split("/").length)
-    .slice(0, 25);
-
-  const picked: string[] = [];
-  const usedDirs = new Set<string>();
-  for (const p of candidates) {
-    const dir = p.split("/").slice(0, -1).join("/");
-    if (usedDirs.has(dir) && picked.length >= 3) continue;
-    usedDirs.add(dir);
-    picked.push(p);
-    if (picked.length >= 5) break;
+  if (!webRes.ok) {
+    if (webRes.status === 404) {
+      throw new Error(`Repository not found or not accessible: ${owner}/${repo}. Check the URL (public repos only).`);
+    }
+    throw new Error(`GitHub returned status ${webRes.status} for ${owner}/${repo}`);
   }
 
-  const sourceFiles: Array<{ path: string; content: string }> = [];
-  for (const p of picked) {
-    const blob = await ghGet<{ content: string; encoding: string; size: number }>(`/repos/${owner}/${repo}/contents/${p}`);
-    if (blob?.encoding === "base64" && blob.content) {
-      const text = Buffer.from(blob.content, "base64").toString("utf-8");
-      sourceFiles.push({ path: p, content: text.slice(0, 4000) });
+  const html = await webRes.text();
+
+  // 1. Description from meta
+  const descMatch = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i);
+  const description = descMatch ? descMatch[1].replace(new RegExp(`\\s*-\\s*${owner}\\/${repo}.*$`, "i"), "").trim() : null;
+
+  // 2. Languages
+  const languages: Record<string, number> = {};
+  const langRegex = /aria-label="([^"]+?)\s+(\d+(?:\.\d+)?%)"/g;
+  let match: RegExpExecArray | null;
+  while ((match = langRegex.exec(html)) !== null) {
+    const lang = match[1];
+    const pct = parseFloat(match[2]);
+    languages[lang] = Math.round(pct * 100);
+  }
+
+  // 3. File tree from repository page links and embedded React payload
+  const fileSet = new Set<string>();
+  const fileLinkRegex = new RegExp(`href="/${owner}/${repo}/(?:blob|tree)/[^/]+/([^"#?]+)"`, "g");
+  while ((match = fileLinkRegex.exec(html)) !== null) {
+    fileSet.add(match[1]);
+  }
+  const itemRegex = /"name":"([^"]+)","path":"([^"]+)"/g;
+  while ((match = itemRegex.exec(html)) !== null) {
+    fileSet.add(match[2]);
+  }
+
+  // 4. README excerpt via raw endpoint
+  let readmeExcerpt: string | null = null;
+  const readmeBranches = ["HEAD", "main", "master"];
+  for (const b of readmeBranches) {
+    try {
+      const rRes = await fetch(`https://github.com/${owner}/${repo}/raw/${b}/README.md`);
+      if (rRes.ok) {
+        readmeExcerpt = (await rRes.text()).slice(0, 2500);
+        break;
+      }
+    } catch {
+      // ignore
     }
   }
 
-  // Dependency manifests give the true stack signal.
-  const dependencyHints: string[] = [];
+  // 5. Dependency manifests
   const manifestNames = ["package.json", "requirements.txt", "Pipfile", "pyproject.toml", "go.mod", "Cargo.toml", "pom.xml", "Gemfile", "docker-compose.yml", "Dockerfile"];
+  const dependencyHints: string[] = [];
   for (const m of manifestNames) {
-    if (fileTree.some((p) => p === m || p.endsWith(`/${m}`))) dependencyHints.push(m);
+    if (fileSet.has(m) || Array.from(fileSet).some((p) => p.endsWith(`/${m}`))) {
+      dependencyHints.push(m);
+    } else {
+      try {
+        const probe = await fetch(`https://github.com/${owner}/${repo}/raw/HEAD/${m}`, { method: "HEAD" });
+        if (probe.ok) {
+          dependencyHints.push(m);
+          fileSet.add(m);
+        }
+      } catch {
+        // ignore
+      }
+    }
   }
 
-  let readmeExcerpt: string | null = null;
-  if (readme?.encoding === "base64" && readme.content) {
-    readmeExcerpt = Buffer.from(readme.content, "base64").toString("utf-8").slice(0, 2500);
+  // 6. Source files (up to 5)
+  const fileTree = Array.from(fileSet);
+  const candidates = fileTree
+    .filter((p) => CODE_EXTENSIONS.some((ext) => p.endsWith(ext)))
+    .filter((p) => !p.includes("node_modules/") && !p.includes(".min."))
+    .slice(0, 5);
+
+  const sourceFiles: Array<{ path: string; content: string }> = [];
+  for (const p of candidates) {
+    try {
+      const sRes = await fetch(`https://github.com/${owner}/${repo}/raw/HEAD/${p}`);
+      if (sRes.ok) {
+        const text = await sRes.text();
+        sourceFiles.push({ path: p, content: text.slice(0, 4000) });
+      }
+    } catch {
+      // ignore
+    }
   }
 
   return {
     url: `https://github.com/${owner}/${repo}`,
-    name: meta.name,
-    description: meta.description,
-    defaultBranch: meta.default_branch,
-    languages: languages ?? {},
-    stars: meta.stargazers_count,
-    pushedAt: meta.pushed_at,
+    name: repo,
+    description,
+    defaultBranch: "HEAD",
+    languages,
+    stars: 0,
+    pushedAt: new Date().toISOString(),
     fileTree,
     readmeExcerpt,
     sourceFiles,
     dependencyHints,
   };
+}
+
+export async function fetchRepoEvidence(repoUrl: string): Promise<RepoEvidence> {
+  const { owner, repo } = parseRepoUrl(repoUrl);
+
+  try {
+    const meta = await ghGet<{
+      name: string;
+      description: string | null;
+      default_branch: string;
+      stargazers_count: number;
+      pushed_at: string | null;
+    }>(`/repos/${owner}/${repo}`);
+
+    if (meta) {
+      const [languages, tree, readme] = await Promise.all([
+        ghGet<Record<string, number>>(`/repos/${owner}/${repo}/languages`),
+        ghGet<{ tree: Array<{ path: string; type: string; size?: number }> }>(
+          `/repos/${owner}/${repo}/git/trees/${meta.default_branch}?recursive=1`,
+        ),
+        ghGet<{ content: string; encoding: string }>(`/repos/${owner}/${repo}/readme`),
+      ]);
+
+      const fileTree = (tree?.tree ?? []).filter((n) => n.type === "blob").map((n) => n.path);
+
+      // Pick up to 5 substantive source files to review (prefer small-ish, path-diverse).
+      const candidates = fileTree
+        .filter((p) => CODE_EXTENSIONS.some((ext) => p.endsWith(ext)))
+        .filter((p) => !p.includes("node_modules/") && !p.includes(".min."))
+        .sort((a, b) => a.split("/").length - b.split("/").length)
+        .slice(0, 25);
+
+      const picked: string[] = [];
+      const usedDirs = new Set<string>();
+      for (const p of candidates) {
+        const dir = p.split("/").slice(0, -1).join("/");
+        if (usedDirs.has(dir) && picked.length >= 3) continue;
+        usedDirs.add(dir);
+        picked.push(p);
+        if (picked.length >= 5) break;
+      }
+
+      const sourceFiles: Array<{ path: string; content: string }> = [];
+      for (const p of picked) {
+        const blob = await ghGet<{ content: string; encoding: string; size: number }>(`/repos/${owner}/${repo}/contents/${p}`);
+        if (blob?.encoding === "base64" && blob.content) {
+          const text = Buffer.from(blob.content, "base64").toString("utf-8");
+          sourceFiles.push({ path: p, content: text.slice(0, 4000) });
+        }
+      }
+
+      // Dependency manifests give the true stack signal.
+      const dependencyHints: string[] = [];
+      const manifestNames = ["package.json", "requirements.txt", "Pipfile", "pyproject.toml", "go.mod", "Cargo.toml", "pom.xml", "Gemfile", "docker-compose.yml", "Dockerfile"];
+      for (const m of manifestNames) {
+        if (fileTree.some((p) => p === m || p.endsWith(`/${m}`))) dependencyHints.push(m);
+      }
+
+      let readmeExcerpt: string | null = null;
+      if (readme?.encoding === "base64" && readme.content) {
+        readmeExcerpt = Buffer.from(readme.content, "base64").toString("utf-8").slice(0, 2500);
+      }
+
+      return {
+        url: `https://github.com/${owner}/${repo}`,
+        name: meta.name,
+        description: meta.description,
+        defaultBranch: meta.default_branch,
+        languages: languages ?? {},
+        stars: meta.stargazers_count,
+        pushedAt: meta.pushed_at,
+        fileTree,
+        readmeExcerpt,
+        sourceFiles,
+        dependencyHints,
+      };
+    }
+  } catch (apiErr) {
+    console.warn(`[ProjectEval] GitHub API failed, attempting public fallback:`, apiErr);
+  }
+
+  // Fallback to public web scraping + raw content inspection (resilient against unauthenticated rate limits)
+  return fetchRepoEvidenceFallback(owner, repo);
 }
 
 function heuristicEvaluate(evidence: RepoEvidence, requirements: string[], rubric: Array<{ criterion: string; weight: number }>, expectedStack: string[]): EvaluationResult {
