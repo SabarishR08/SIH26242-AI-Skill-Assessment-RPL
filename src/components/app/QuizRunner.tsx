@@ -56,9 +56,8 @@ export function QuizRunner({
     try {
       const r = await onSubmit(quiz.quizId, answers);
       setResult(r);
-      onFinished?.(r);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Submission failed");
+      setError(e instanceof Error ? e.message : "Submission failed. Please check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -111,19 +110,51 @@ export function QuizRunner({
               );
             })}
           </div>
-          <div className="flex gap-2">
-            {!result.passed && !result.isTerminal && (result.attemptsRemaining ?? 1) > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+            {result.passed ? (
+              <Button
+                size="sm"
+                onClick={() => {
+                  onFinished?.(result);
+                }}
+              >
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Continue to Phase
+              </Button>
+            ) : result.isTerminal ? (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setResult(null);
-                  setAnswers(Array(quiz.questions.length).fill(-1));
-                  setCurrent(0);
+                  onFinished?.(result);
                 }}
               >
-                <RotateCcw className="mr-1 h-3.5 w-3.5" /> Retry Attempt ({result.attemptsRemaining} left)
+                Return to Roadmap
               </Button>
+            ) : (
+              <>
+                {(result.attemptsRemaining ?? 1) > 0 && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      setResult(null);
+                      setAnswers(Array(quiz.questions.length).fill(-1));
+                      setCurrent(0);
+                    }}
+                  >
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Retry Attempt ({result.attemptsRemaining} left)
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    onFinished?.(result);
+                  }}
+                >
+                  Dismiss
+                </Button>
+              </>
             )}
           </div>
         </CardContent>

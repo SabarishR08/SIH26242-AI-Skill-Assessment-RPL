@@ -61,9 +61,9 @@ export default function MilestonePage() {
   const [explainText, setExplainText] = useState("");
   const [explainTitle, setExplainTitle] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showSkeleton = true) => {
     if (!learnerId || !params.id) return;
-    setLoading(true);
+    if (showSkeleton) setLoading(true);
     try {
       const res = await api.getCurrentPath(learnerId);
       setPath(res.path);
@@ -76,7 +76,7 @@ export default function MilestonePage() {
     } catch (e) {
       toast({ title: "Failed to load milestone", description: e instanceof Error ? e.message : "", variant: "destructive" });
     } finally {
-      setLoading(false);
+      if (showSkeleton) setLoading(false);
     }
   }, [learnerId, params.id, toast]);
 
@@ -122,10 +122,10 @@ export default function MilestonePage() {
   };
 
   const onQuizFinished = async (result: QuizResult) => {
+    setGateQuiz(null);
     if (result.milestoneCompleted) {
       toast({ title: "Milestone complete", description: "All requirements passed — next phase unlocked." });
-      setGateQuiz(null);
-      await load();
+      await load(false);
     } else if (result.passed) {
       toast({
         title: "Gate quiz passed",
@@ -133,17 +133,16 @@ export default function MilestonePage() {
           ? "Gate quiz passed! Complete and submit the project to finish this phase."
           : "Gate quiz passed!",
       });
-      setGateQuiz(null);
-      await load();
+      await load(false);
     } else if (result.replanHappened) {
       toast({
         title: "Path replanned with refresher",
         description: "Review your score and explanations below. A refresher phase has been added to your roadmap.",
         duration: 8000,
       });
-      // Preserve result view so learner can read score before returning to roadmap
+      await load(false);
     } else {
-      await load();
+      await load(false);
     }
   };
 
@@ -538,10 +537,17 @@ export default function MilestonePage() {
               </p>
             </CardHeader>
             <CardContent>
-              <Button onClick={startGateQuiz} disabled={quizBusy}>
-                {quizBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Award className="mr-2 h-4 w-4" />}
-                {milestone.gateQuiz ? "Retake gate quiz" : "Generate gate quiz"}
-              </Button>
+              {milestone.gateQuiz?.status === "passed" ? (
+                <div className="flex items-center gap-2 text-sm text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Gate quiz passed — skills verified</span>
+                </div>
+              ) : (
+                <Button onClick={startGateQuiz} disabled={quizBusy}>
+                  {quizBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Award className="mr-2 h-4 w-4" />}
+                  {milestone.gateQuiz ? "Retake gate quiz" : "Generate gate quiz"}
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
