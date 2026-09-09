@@ -209,3 +209,9 @@
 .thin-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}

@@ -201,19 +201,19 @@ export default function DashboardPage() {
   return (
     <AppShell learnerName={learner.name} onReset={sharedPassportId ? undefined : () => { setLearnerId(null); router.push("/onboarding"); }}>
       {sharedPassportId && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-sm shadow-sm backdrop-blur-md">
-          <div className="flex items-center gap-2.5">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-sm shadow-sm backdrop-blur-md min-w-0 max-w-full">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <Award className="h-5 w-5 text-primary shrink-0" />
-            <div>
-              <p className="font-medium text-foreground">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-foreground break-words">
                 Viewing Verifiable Skill Passport for <span className="text-primary font-semibold">{learner.name}</span> (Read-Only Preview)
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground break-words">
                 Cryptographically authenticated record backed by code challenges and project evaluations
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => setPassportOpen(true)} className="h-8 text-xs border-primary/30">
               <Award className="mr-1.5 h-3.5 w-3.5 text-primary" /> View Credential
             </Button>
@@ -227,32 +227,32 @@ export default function DashboardPage() {
       )}
 
       {/* Top Welcome & Actions Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            {sharedPassportId ? `${learner.name}'s Competency Profile` : `Welcome back, ${learner.name}`}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 min-w-0 max-w-full">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex flex-wrap items-center gap-2">
+            <span>{sharedPassportId ? `${learner.name}'s Competency Profile` : `Welcome back, ${learner.name}`}</span>
             {learner.targetRole && (
               <Badge variant="secondary" className="text-xs font-normal">
                 {learner.targetRole}
               </Badge>
             )}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5 break-words">
             {learner.goalStatement || "Track your competency roadmap, calibrated skills, and verifiable credentials."}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setPassportOpen(true)}
-            className="border-primary/40 text-primary hover:bg-primary/10 shadow-sm"
+            className="border-primary/40 text-primary hover:bg-primary/10 shadow-sm text-xs sm:text-sm"
           >
             <Award className="mr-1.5 h-4 w-4" /> View Skill Passport
           </Button>
           {!sharedPassportId && (
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm">
               <Link href="/path">
                 <RouteIcon className="mr-1.5 h-4 w-4" /> My Roadmap
               </Link>
