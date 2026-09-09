@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, XCircle, ChevronRight, RotateCcw } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronRight, RotateCcw, Code2, Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface QuizData {
@@ -136,6 +136,18 @@ export function QuizRunner({
 
   const q = quiz.questions[current];
   if (!q) return null;
+
+  // Extract code snippet if present in markdown code block format (```lang ... ```)
+  const codeMatch = q.prompt.match(/^([\s\S]*?)```([a-zA-Z0-9_-]*)\n([\s\S]*?)```([\s\S]*)$/);
+  const parsedCode = codeMatch
+    ? {
+        preText: codeMatch[1].trim(),
+        language: codeMatch[2].trim() || "code",
+        code: codeMatch[3].trim(),
+        postText: codeMatch[4].trim(),
+      }
+    : null;
+
   return (
     <Card className="glass-card">
       <CardHeader className="pb-3">
@@ -153,8 +165,54 @@ export function QuizRunner({
         <Progress value={(answeredCount / quiz.questions.length) * 100} className="h-1 mt-2" />
       </CardHeader>
       <CardContent className="space-y-4">
-        {q.skillFocus && <Badge variant="outline" className="text-xs">{q.skillFocus}</Badge>}
-        <p className="font-medium leading-relaxed whitespace-pre-wrap">{q.prompt}</p>
+        <div className="flex items-center gap-2">
+          {q.skillFocus && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs",
+                q.skillFocus.toLowerCase().includes("debug") || parsedCode
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                  : ""
+              )}
+            >
+              {(q.skillFocus.toLowerCase().includes("debug") || parsedCode) && (
+                <Code2 className="mr-1 h-3 w-3 text-amber-400 inline" />
+              )}
+              {q.skillFocus}
+            </Badge>
+          )}
+          {parsedCode && (
+            <Badge variant="secondary" className="text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300">
+              <Terminal className="mr-1 h-2.5 w-2.5 inline" /> {parsedCode.language}
+            </Badge>
+          )}
+        </div>
+
+        {parsedCode ? (
+          <div className="space-y-3">
+            {parsedCode.preText && (
+              <p className="font-medium text-sm text-foreground leading-relaxed">{parsedCode.preText}</p>
+            )}
+            <div className="rounded-lg border border-border/80 bg-zinc-950 p-3.5 font-mono text-xs overflow-x-auto shadow-inner">
+              <div className="flex items-center justify-between border-b border-border/40 pb-1.5 mb-2 text-[11px] text-zinc-400">
+                <span className="flex items-center gap-1.5 font-semibold text-primary">
+                  <Terminal className="h-3 w-3" /> {parsedCode.language.toUpperCase()}
+                </span>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Inspection challenge</span>
+              </div>
+              <pre className="text-emerald-400 leading-relaxed font-mono selection:bg-primary/30">
+                <code>{parsedCode.code}</code>
+              </pre>
+            </div>
+            {parsedCode.postText && (
+              <p className="font-semibold text-sm leading-relaxed text-foreground">{parsedCode.postText}</p>
+            )}
+          </div>
+        ) : (
+          <p className="font-medium leading-relaxed whitespace-pre-wrap">{q.prompt}</p>
+        )}
+
         <RadioGroup
           value={answers[current] >= 0 ? String(answers[current]) : undefined}
           onValueChange={(v) => {

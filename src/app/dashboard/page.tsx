@@ -39,6 +39,7 @@ import {
   Tooltip,
   XAxis,
 } from "recharts";
+import { SkillPassportModal } from "@/components/profile/SkillPassportModal";
 
 const ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   generate_path: RouteIcon,
@@ -73,6 +74,7 @@ export default function DashboardPage() {
   const [explainOpen, setExplainOpen] = useState(false);
   const [explainText, setExplainText] = useState<string>("");
   const [explainLoading, setExplainLoading] = useState(false);
+  const [passportOpen, setPassportOpen] = useState(false);
   const [pathEdges, setPathEdges] = useState<Array<[string, string]>>([]);
   const [pathSkills, setPathSkills] = useState<Array<{ id: string; name: string; domain: string; depth: number; hours: number }>>([]);
   const [masteredSkills, setMasteredSkills] = useState<string[]>([]);
@@ -170,6 +172,39 @@ export default function DashboardPage() {
 
   return (
     <AppShell learnerName={learner.name} onReset={() => { setLearnerId(null); router.push("/onboarding"); }}>
+      {/* Top Welcome & Actions Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            Welcome back, {learner.name}
+            {learner.targetRole && (
+              <Badge variant="secondary" className="text-xs font-normal">
+                {learner.targetRole}
+              </Badge>
+            )}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {learner.goalStatement || "Track your competency roadmap, calibrated skills, and verifiable credentials."}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPassportOpen(true)}
+            className="border-primary/40 text-primary hover:bg-primary/10 shadow-sm"
+          >
+            <Award className="mr-1.5 h-4 w-4" /> View Skill Passport
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/path">
+              <RouteIcon className="mr-1.5 h-4 w-4" /> My Roadmap
+            </Link>
+          </Button>
+        </div>
+      </div>
+
       {/* Header stats */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card className="glass-card">
@@ -409,6 +444,13 @@ export default function DashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Verifiable Skill Passport Modal */}
+      <SkillPassportModal
+        open={passportOpen}
+        onOpenChange={setPassportOpen}
+        learnerId={learnerId ?? ""}
+      />
     </AppShell>
   );
 }

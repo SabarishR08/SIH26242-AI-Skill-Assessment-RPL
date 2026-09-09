@@ -248,6 +248,26 @@ export const api = {
       body: JSON.stringify({ learnerId, goalSkillId }),
     }).then(handle<{ pathId: string; version: number }>),
 
+  simulatePath: (
+    learnerId: string,
+    options: {
+      scenario?: string;
+      hoursPerWeek?: number;
+      simulateFailure?: boolean;
+      additionalKnownSkillId?: string;
+    },
+  ) =>
+    fetch("/api/path/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ learnerId, ...options }),
+    }).then(handle<SimulationResult>),
+
+  getSkillPassport: (learnerId: string) =>
+    fetch(`/api/profile/passport?learnerId=${learnerId}`).then(
+      handle<SkillPassportData>,
+    ),
+
   searchSkills: (query: string, domain?: string) =>
     fetch(`/api/skills/search?query=${encodeURIComponent(query)}${domain ? `&domain=${encodeURIComponent(domain)}` : ""}`).then(
       handle<{ hits: Array<{ id: string; name: string; domain: string; depth: number }> }>
@@ -418,6 +438,81 @@ export interface DashboardData {
   weekly: null | { weekOf: string; content: string; metrics: Record<string, unknown> };
   momentum: Array<{ day: string; count: number }>;
   metrics: Record<string, number | string>;
+}
+
+export interface SimulationResult {
+  simulation: {
+    scenario: string;
+    meta: { label: string; tagline: string; description: string };
+    hoursPerWeek: number;
+    totalHours: number;
+    totalWeeks: number;
+    etaDate: string;
+    milestonesCount: number;
+    milestones: Array<{
+      order: number;
+      phase: string;
+      title: string;
+      estimatedHours: number;
+      hasProject: boolean;
+      hasGateQuiz: boolean;
+      targetStartAt?: string;
+      targetEndAt?: string;
+    }>;
+    diff: {
+      added: Array<{ phase: string; title: string; reason: string }>;
+      removed: Array<{ phase: string; title: string; reason: string }>;
+      keptCount: number;
+      etaShiftDays: number;
+      reasons: string[];
+    };
+  };
+  current: {
+    scenario: string;
+    hoursPerWeek: number;
+    totalHours: number;
+    milestonesCount: number;
+    etaDate: string | null;
+  } | null;
+}
+
+export interface SkillPassportData {
+  learner: {
+    id: string;
+    name: string;
+    targetRole: string | null;
+    domain: string | null;
+    goalSkill: string | null;
+    hoursPerWeek: number;
+    memberSince: string;
+  };
+  summary: {
+    passportId: string;
+    issuedAt: string;
+    integrityHash: string;
+    totalVerifiedSkills: number;
+    radarScore: number;
+    evaluationsCount: number;
+    quizzesPassed: number;
+  };
+  verifiedSkills: Array<{
+    skillId: string;
+    skillName: string;
+    level: number;
+    tier: "proven" | "verified" | "claimed";
+    source: string;
+    verifiedAt: string;
+    evidenceSnippet?: string;
+  }>;
+  evaluations: Array<{
+    title: string;
+    score: number;
+    verdict: string;
+    submittedAt: string;
+    repoUrl: string;
+    keyStrengths: string[];
+  }>;
+  jsonLdCredential: Record<string, unknown>;
 }
 
 // ── SSE stream consumption ──────────────────────────────────────────────────

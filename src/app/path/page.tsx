@@ -34,7 +34,11 @@ import {
   Plus,
   Minus,
   ArrowUpDown,
+  AlertTriangle,
+  Sparkles,
+  Sliders,
 } from "lucide-react";
+import { WhatIfSimulator } from "@/components/path/WhatIfSimulator";
 
 interface DiffData {
   added: Array<{ phase: string; title: string; reason: string }>;
@@ -65,6 +69,7 @@ export default function PathPage() {
   const [diffOpen, setDiffOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
   const [goalText, setGoalText] = useState("");
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -195,7 +200,15 @@ export default function PathPage() {
                 {path.progress.completed}/{path.progress.total} phases complete · {path.progress.hoursRemaining}h remaining · {path.totalSkills} skills
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-primary/40 text-primary hover:bg-primary/10"
+                onClick={() => setSimulatorOpen(true)}
+              >
+                <Sliders className="mr-1.5 h-3.5 w-3.5" /> What-If Simulator
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setGoalOpen(true)}>
                 <Target className="mr-1.5 h-3.5 w-3.5" /> Change goal
               </Button>
@@ -253,6 +266,16 @@ export default function PathPage() {
                       {m.hasProject && (
                         <Badge variant="outline" className="text-[10px] border-violet-500/40 text-violet-300 bg-violet-500/10">
                           <Hammer className="mr-1 h-2.5 w-2.5" /> project
+                        </Badge>
+                      )}
+                      {m.phase.toLowerCase().includes("remediation") && (
+                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-300 bg-amber-500/10">
+                          <AlertTriangle className="mr-1 h-2.5 w-2.5 text-amber-400" /> Remediation (Quiz Refresher)
+                        </Badge>
+                      )}
+                      {m.phase.toLowerCase().includes("consolidation") && (
+                        <Badge variant="outline" className="text-[10px] border-blue-500/40 text-blue-300 bg-blue-500/10">
+                          <Sparkles className="mr-1 h-2.5 w-2.5 text-blue-400" /> Consolidation (Pace Tuned)
                         </Badge>
                       )}
                     </div>
@@ -401,6 +424,15 @@ export default function PathPage() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* What-If Replan Simulator Drawer */}
+      <WhatIfSimulator
+        open={simulatorOpen}
+        onOpenChange={setSimulatorOpen}
+        learnerId={learnerId ?? ""}
+        currentPath={path}
+        onApplied={() => void load()}
+      />
     </AppShell>
   );
 }

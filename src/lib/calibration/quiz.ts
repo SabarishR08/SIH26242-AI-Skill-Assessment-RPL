@@ -70,7 +70,7 @@ async function generateQuestionsLlm(
 They claim level ${claimedLevel}/5 (${claimedLevel <= 2 ? "guided practice" : claimedLevel <= 3 ? "independent practitioner" : "advanced"}).
 Context about them: ${context || "none available"}
 
-Difficulty must match the CLAIMED level — if they say level 4, ask level-4 questions, not level-1 trivia. Mix: one concept, one applied scenario, one "which approach fits this problem", one debugging/edge-case judgment.
+Difficulty must match the CLAIMED level — if they say level 4, ask level-4 questions, not level-1 trivia. For software, programming, or web skills, at least one question must be a code debugging or inspection challenge with a fenced code block (\`\`\`language ... \`\`\`) in the prompt testing real error spotting.
 
 Return JSON: array of 4 objects:
 {"prompt": "...", "options": ["A", "B", "C", "D"], "correctIndex": 0-3, "explanation": "why the answer is right", "skillFocus": "sub-topic"}
@@ -103,6 +103,57 @@ Options must be plausible; distractors should reflect real misconceptions.`,
   return result?.value ?? null;
 }
 
+const CODE_DEBUG_CHALLENGES: Record<string, QuizQuestionDraft> = {
+  python: {
+    prompt: `Code Inspection Challenge: Review this Python data parsing function:\n\n\`\`\`python\ndef parse_records(data):\n    records = []\n    for item in data:\n        record = {}\n        record["val"] = item["val"]\n        records.append(record)\n    return records\n\`\`\`\nWhat runtime exception occurs if an element in \`data\` is missing the \`"val"\` key?`,
+    options: [
+      "KeyError is raised because dictionary indexing lacks fallback handling",
+      "TypeError is raised because dictionaries are immutable",
+      "IndexError is raised when appending to records",
+      "SyntaxError occurs during dictionary key evaluation",
+    ],
+    correctIndex: 0,
+    explanation: "Direct dictionary indexing item['val'] throws a KeyError if the key is missing. Using item.get('val') provides safe fallback.",
+    skillFocus: "Code Debugging",
+  },
+  javascript: {
+    prompt: `Code Inspection Challenge: Review this asynchronous JavaScript function:\n\n\`\`\`javascript\nasync function loadAll(ids) {\n  const results = ids.map(async (id) => {\n    return await fetchItem(id);\n  });\n  return results.filter(r => r !== null);\n}\n\`\`\`\nWhat is the primary bug in this implementation?`,
+    options: [
+      "results is an array of unresolved Promises, so .filter() runs synchronously before data arrives",
+      "map cannot accept an async callback in modern JavaScript",
+      "await is invalid inside an arrow function body",
+      "fetchItem must be invoked without await",
+    ],
+    correctIndex: 0,
+    explanation: "Array.map with an async function produces an array of pending Promises. You must await Promise.all(results) before filtering.",
+    skillFocus: "Code Debugging",
+  },
+  sql: {
+    prompt: `Code Inspection Challenge: Review this SQL aggregation query:\n\n\`\`\`sql\nSELECT department_id, COUNT(*) as headcount\nFROM employees\nWHERE headcount > 10\nGROUP BY department_id;\n\`\`\`\nWhy will this query fail in standard SQL?`,
+    options: [
+      "Aggregated filters must be placed in a HAVING clause, not a WHERE clause",
+      "COUNT(*) cannot be aliased using the AS keyword",
+      "GROUP BY must be placed before the WHERE clause",
+      "department_id must be wrapped in an aggregate function",
+    ],
+    correctIndex: 0,
+    explanation: "WHERE filters rows before aggregation occurs. Conditions on aggregate expressions (like COUNT(*) > 10) must be evaluated in a HAVING clause.",
+    skillFocus: "Code Debugging",
+  },
+  programming: {
+    prompt: `Code Inspection Challenge: Review this recursive computation:\n\n\`\`\`python\ndef compute(n):\n    if n == 0: return 0\n    return compute(n - 1) + compute(n - 2)\n\`\`\`\nWhat critical edge case or flaw is present?`,
+    options: [
+      "Inputs with n < 0 trigger infinite recursion / RecursionError, and lack of base case for n=1 causes exponential duplicate calls",
+      "Recursive functions in Python cannot return sums of recursive calls",
+      "The return keyword is invalid inside an if block",
+      "Integers cannot be compared to zero using ==",
+    ],
+    correctIndex: 0,
+    explanation: "Without handling n <= 0 properly and lacking a base case for n=1, negative inputs blow the call stack and positive inputs suffer O(2^n) exponential calls.",
+    skillFocus: "Code Debugging",
+  },
+};
+
 /** Real questions derived from the prerequisite DAG and course catalogue. */
 async function generateQuestionsDeterministic(skillId: string): Promise<QuizQuestionDraft[]> {
   const graph = await loadSkillGraph();
@@ -110,6 +161,15 @@ async function generateQuestionsDeterministic(skillId: string): Promise<QuizQues
   const node = graph.skills[skillId];
   if (!node) return [];
   const drafts: QuizQuestionDraft[] = [];
+
+  // Code inspection challenge for coding & technical skills
+  const lowerName = (node.name + " " + skillId + " " + node.domain).toLowerCase();
+  for (const [key, challenge] of Object.entries(CODE_DEBUG_CHALLENGES)) {
+    if (lowerName.includes(key)) {
+      drafts.push(challenge);
+      break;
+    }
+  }
 
   // Q1: prerequisites — the graph ground truth.
   if (node.prereqs.length) {

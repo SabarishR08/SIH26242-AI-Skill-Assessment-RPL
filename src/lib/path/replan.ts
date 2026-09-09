@@ -165,11 +165,17 @@ export async function replanPath(
   if (reason === "too_hard" && newPath && activePath) {
     const inProgress = [...newPath.milestones].find((m) => m.status === "in_progress" || m.status === "available");
     if (inProgress) {
+      // Shift subsequent orders first to avoid unique key / numbering collision
+      const later = [...newPath.milestones].filter((m) => m.order > inProgress.order);
+      for (const m of later) {
+        await db.milestone.update({ where: { id: m.id }, data: { order: m.order + 1 } });
+      }
+
       const reviewHours = Math.max(3, Math.round(inProgress.estimatedHours * 0.4));
       await db.milestone.create({
         data: {
           pathId: newPath.id,
-          order: inProgress.order,
+          order: inProgress.order + 1,
           phase: `${inProgress.order}.5 Consolidation`,
           title: `Review & reinforce: ${inProgress.title}`,
           description: `Pace feedback asked for breathing room. This consolidation phase revisits ${inProgress.title} with lighter resources before moving on.`,
@@ -183,15 +189,62 @@ export async function replanPath(
           targetEndAt: inProgress.targetEndAt,
         },
       });
-      // Shift subsequent orders.
-      const later = [...newPath.milestones].filter((m) => m.order > inProgress.order);
-      for (const m of later) {
-        await db.milestone.update({ where: { id: m.id }, data: { order: m.order + 1 } });
-      }
+
       diff.added.push({
         phase: `${inProgress.order}.5 Consolidation`,
         title: `Review & reinforce: ${inProgress.title}`,
         reason: "Inserted from your 'too hard' feedback — consolidate before advancing",
+      });
+    }
+  }
+
+  // Quiz-failed feedback: insert a remediation milestone right before the failed phase
+  // so the learner closes gaps and re-attempts the gate quiz.
+  if (reason === "quiz_failed" && newPath && activePath) {
+    let targetMilestone = context.failedMilestoneId
+      ? [...newPath.milestones].find((m) => m.id === context.failedMilestoneId)
+      : null;
+    if (!targetMilestone && context.failedMilestoneId) {
+      const oldM = [...activePath.milestones].find((m) => m.id === context.failedMilestoneId);
+      if (oldM) {
+        const oldKeyStr = skillsOf(oldM).sort().join(",");
+        targetMilestone = [...newPath.milestones].find((m) => skillsOf(m).sort().join(",") === oldKeyStr) ?? null;
+      }
+    }
+    if (!targetMilestone) {
+      targetMilestone = [...newPath.milestones].find((m) => m.status === "in_progress" || m.status === "available") ?? null;
+    }
+
+    if (targetMilestone) {
+      // Shift all milestones from targetMilestone onward by +1
+      const toShift = [...newPath.milestones].filter((m) => m.order >= targetMilestone.order);
+      for (const m of toShift) {
+        await db.milestone.update({ where: { id: m.id }, data: { order: m.order + 1 } });
+      }
+
+      const reviewHours = Math.max(4, Math.round(targetMilestone.estimatedHours * 0.4));
+      await db.milestone.create({
+        data: {
+          pathId: newPath.id,
+          order: targetMilestone.order,
+          phase: `Remediation: ${targetMilestone.title}`,
+          title: `Refresher: ${targetMilestone.title}`,
+          description: `Gate quiz indicated conceptual gaps. This targeted remediation phase reviews core concepts before you re-attempt the gate assessment.`,
+          skillIdsJson: targetMilestone.skillIdsJson,
+          skillNamesJson: targetMilestone.skillNamesJson,
+          estimatedHours: reviewHours,
+          status: "available",
+          hasProject: false,
+          hasGateQuiz: true,
+          targetStartAt: targetMilestone.targetStartAt,
+          targetEndAt: targetMilestone.targetEndAt,
+        },
+      });
+
+      diff.added.push({
+        phase: `Remediation: ${targetMilestone.title}`,
+        title: `Refresher: ${targetMilestone.title}`,
+        reason: "Inserted from gate quiz result — reinforce fundamentals before re-attempting the gate",
       });
     }
   }

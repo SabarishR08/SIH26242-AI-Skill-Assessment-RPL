@@ -34,7 +34,9 @@ import {
   Route as RouteIcon,
   RefreshCw,
   Zap,
+  Award,
 } from "lucide-react";
+import { SkillPassportModal } from "@/components/profile/SkillPassportModal";
 
 const STAGES = [
   { id: "intro", label: "Welcome", icon: User },
@@ -98,6 +100,8 @@ export default function OnboardingPage() {
 
   // Scenario state
   const [previews, setPreviews] = useState<Array<{ scenario: string; label: string; tagline: string; description: string; totalSkills: number; totalHours: number; etaWeeks: number; milestones: number; algorithm: string }>>([]);
+  const [selectedScenario, setSelectedScenario] = useState<string>("balanced");
+  const [passportOpen, setPassportOpen] = useState(false);
   const [hoursPerWeek, setHoursPerWeek] = useState(10);
   const [selected, setSelected] = useState("balanced");
   const [generating, setGenerating] = useState(false);
@@ -632,9 +636,19 @@ export default function OnboardingPage() {
           </Card>
           <div className="md:col-span-2 flex justify-between items-center">
             <Button variant="ghost" size="sm" onClick={() => setStage("evidence")}>← Add more evidence</Button>
-            <Button onClick={() => setStage("calibration")}>
-              {gaps.length > 0 ? "Audit my claims" : "Skip to roadmap"} <ArrowRight className="ml-1 h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-primary/40 text-primary hover:bg-primary/10"
+                onClick={() => setPassportOpen(true)}
+              >
+                <Award className="mr-1.5 h-3.5 w-3.5" /> View Skill Passport
+              </Button>
+              <Button onClick={() => setStage("calibration")}>
+                {gaps.length > 0 ? "Audit my claims" : "Skip to roadmap"} <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
       </ErrorBoundary>
@@ -843,6 +857,13 @@ export default function OnboardingPage() {
         </div>
       </ErrorBoundary>
       )}
+
+      {/* Verifiable Skill Passport Modal */}
+      <SkillPassportModal
+        open={passportOpen}
+        onOpenChange={setPassportOpen}
+        learnerId={learnerId ?? ""}
+      />
     </AppShell>
   );
 }
