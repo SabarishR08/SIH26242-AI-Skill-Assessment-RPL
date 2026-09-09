@@ -26,9 +26,11 @@ model Learner {
   learningStyle   String?
   motivation      String?
   constraintsJson String? // JSON: string[]
-  onboardingStage String   @default("intake") // intake | interview | evidence | claims | calibration | scenarios | complete
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  onboardingStage    String   @default("intake") // intake | interview | evidence | claims | calibration | scenarios | complete
+  passportId         String?  @unique
+  passportShareToken String?  @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   evidence       EvidenceItem[]
   assessments    SkillAssessment[]

@@ -25,6 +25,11 @@ const mockDb = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn().mockResolvedValue({}),
   },
+  learningPath: {
+    findFirst: vi.fn().mockResolvedValue(null),
+    findUnique: vi.fn().mockResolvedValue(null),
+    update: vi.fn().mockResolvedValue({}),
+  },
   activityLog: {
     create: vi.fn().mockResolvedValue({}),
   },

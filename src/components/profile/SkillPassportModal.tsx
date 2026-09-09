@@ -79,19 +79,20 @@ export function SkillPassportModal({
   };
 
   const copyShareableLink = () => {
-    if (typeof window === "undefined") return;
-    const url = `${window.location.origin}/dashboard?passport=${learnerId}`;
+    if (typeof window === "undefined" || !data) return;
+    const token = data.summary.shareToken || data.summary.passportId;
+    const url = `${window.location.origin}/dashboard?shareToken=${token}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
-    toast({ title: "Shareable verification link copied to clipboard!" });
+    toast({ title: "Shareable read-only verification link copied to clipboard!" });
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-        <DialogHeader className="pb-3 border-b border-border/50">
-          <div className="flex items-center justify-between">
+        <DialogHeader className="pb-3 border-b border-border/50 pr-8">
+          <div className="flex flex-wrap items-center justify-between gap-2 pr-6">
             <div className="flex items-center gap-2">
               <Award className="h-5 w-5 text-primary" />
               <DialogTitle className="text-xl">Verifiable Skill Passport</DialogTitle>
@@ -180,8 +181,9 @@ export function SkillPassportModal({
 
                   {/* Skills Showcase */}
                   <div>
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                      Verified Competencies
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
+                      <span>Verified Competencies</span>
+                      <span className="text-[10px] font-normal lowercase">({data.verifiedSkills.length} verified)</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {data.verifiedSkills.length > 0 ? (
@@ -202,11 +204,32 @@ export function SkillPassportModal({
                         ))
                       ) : (
                         <span className="text-xs text-muted-foreground italic">
-                          Initial calibration in progress.
+                          No verified competencies yet. Pass gate quizzes or connect verifiable GitHub repositories to earn verified credentials.
                         </span>
                       )}
                     </div>
                   </div>
+
+                  {/* Self-Reported / In-Progress Skills (NEW-01) */}
+                  {data.selfReportedSkills && data.selfReportedSkills.length > 0 && (
+                    <div className="pt-2">
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400/80" />
+                        Self-Reported / In-Progress Skills ({data.selfReportedSkills.length})
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {data.selfReportedSkills.map((s) => (
+                          <Badge
+                            key={s.skillId}
+                            variant="outline"
+                            className="text-[11px] py-0.5 px-2 border-amber-500/30 bg-amber-500/5 text-amber-300/80 font-normal"
+                          >
+                            {s.skillName} (Claimed Lvl {s.level})
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Footer Seal */}
                   <div className="pt-2 flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/30">
@@ -293,7 +316,7 @@ export function SkillPassportModal({
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-semibold text-foreground">{ev.title}</span>
                             <Badge className="bg-emerald-500/20 text-emerald-300 text-[10px]">
-                              Score: {ev.score}% · {ev.verdict}
+                              {ev.score !== null ? `Score: ${ev.score}%` : "Evaluation Recorded"} · {ev.verdict}
                             </Badge>
                           </div>
                           <div className="text-[11px] text-primary mt-1 font-mono">

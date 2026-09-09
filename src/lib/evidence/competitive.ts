@@ -141,7 +141,11 @@ export async function fetchCodeforcesStats(handle: string): Promise<CodeforcesSt
   });
   const json = (await res.json()) as { status: string; result?: CfUser[]; comment?: string };
   if (json.status !== "OK" || !json.result?.length) {
-    throw new Error(json.comment || "Codeforces handle not found");
+    const comment = json.comment || "";
+    if (comment.toLowerCase().includes("not found")) {
+      throw new Error(`Codeforces user "${handle}" not found`);
+    }
+    throw new Error(comment.replace(/^handles:\s*/i, "") || "Codeforces handle not found");
   }
   const u = json.result[0];
   const rating = u.rating ?? u.maxRating ?? null;

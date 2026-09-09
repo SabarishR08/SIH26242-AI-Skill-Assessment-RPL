@@ -15,12 +15,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const { id } = await params;
     const body = await readJson<Body>(request);
+    if (!body.learnerId) return apiError("learnerId is required", 400);
     if (!Array.isArray(body.answers)) return apiError("answers[] is required", 400);
 
     const quiz = await db.quiz.findUnique({ where: { id } });
     if (!quiz) return apiError("Quiz not found", 404);
 
-    if (body.learnerId && quiz.learnerId !== body.learnerId) {
+    if (quiz.learnerId !== body.learnerId) {
       return apiError("Unauthorized: quiz belongs to another learner", 403);
     }
 

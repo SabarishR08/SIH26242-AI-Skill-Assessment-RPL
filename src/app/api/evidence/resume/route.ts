@@ -3,6 +3,7 @@ import { apiError, handleApiError, json } from "@/lib/api-helpers";
 import { analyzeResume, extractPdfText } from "@/lib/evidence/resume";
 import { fuseEvidence, logEvidence } from "@/lib/evidence/fuse";
 import { loadSkillGraph } from "@/lib/engine/data";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,6 +15,9 @@ interface Body {
 
 /** Ingest resume/LinkedIn text (or PDF upload via multipart form). */
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 30, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const contentType = request.headers.get("content-type") || "";
     let learnerId = "";

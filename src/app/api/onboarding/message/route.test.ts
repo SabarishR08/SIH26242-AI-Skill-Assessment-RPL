@@ -90,22 +90,17 @@ describe("/api/onboarding/message POST", () => {
     expect(doneEvent.phase).toBe("intro");
   });
 
-  it("advances phase when user sends skip", async () => {
+  it("does not prematurely advance phase in route when user sends skip (delegated to persistAgentTurn)", async () => {
     mockDb.learner.findUnique.mockResolvedValue({ id: "l1", name: "Test" });
-    mockDb.agentState.findUnique.mockResolvedValue({ phase: "intro" });
-    mockDb.agentState.update.mockResolvedValue({});
     mockRunAgentStream.mockResolvedValue({ fullReply: "OK, moving on." });
     mockPersistAgentTurn.mockResolvedValue({ phase: "goal", extracted: {}, roundsInPhase: 0 });
 
     const res = await POST(makeRequest({ learnerId: "l1", message: "skip" }));
     expect(res.status).toBe(200);
 
-    // Phase should have been advanced
-    expect(mockDb.agentState.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ phase: "goal" }),
-      })
-    );
+    // Route itself must NOT call agentState.update directly to prevent double-skipping (NEW-07)
+    expect(mockDb.agentState.update).not.toHaveBeenCalled();
+    expect(mockRunAgentStream).toHaveBeenCalledWith("l1", "skip");
   });
 
   it("does not advance phase when message does not contain skip", async () => {

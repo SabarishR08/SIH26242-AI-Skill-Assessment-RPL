@@ -25,19 +25,6 @@ export async function POST(request: Request) {
     const learner = await db.learner.findUnique({ where: { id: body.learnerId } });
     if (!learner) return apiError("Learner not found", 404);
 
-    const wantsSkip = /^\s*(\/skip|skip|next|move on|let'?s move|let'?s move on|skip question)\s*$/i.test(body.message.trim());
-    if (wantsSkip) {
-      const currentState = await db.agentState.findUnique({ where: { learnerId: body.learnerId } });
-      if (currentState && currentState.phase !== "done") {
-        const idx = PHASE_ORDER.indexOf(currentState.phase as AgentPhase);
-        const nextPhase = PHASE_ORDER[Math.min(idx + 1, PHASE_ORDER.length - 1)];
-        await db.agentState.update({
-          where: { learnerId: body.learnerId },
-          data: { phase: nextPhase }
-        });
-      }
-    }
-
     const generator = (async function* () {
       let apiReply = "";
       try {

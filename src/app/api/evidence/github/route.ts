@@ -3,6 +3,7 @@ import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { fetchGithubProfile, analyzeGithub } from "@/lib/evidence/github";
 import { fuseEvidence, logEvidence } from "@/lib/evidence/fuse";
 import { loadSkillGraph } from "@/lib/engine/data";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,6 +15,9 @@ interface Body {
 
 /** Ingest GitHub evidence: fetch real profile data, analyse, fuse into assessments. */
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 30, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const body = await readJson<Body>(request);
     const username = (body.username || "")

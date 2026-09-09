@@ -1,12 +1,16 @@
 import { db } from "@/lib/db";
-import { apiError, json } from "@/lib/api-helpers";
+import { apiError, handleApiError, json } from "@/lib/api-helpers";
 import { generateWeeklyReport } from "@/lib/coach";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /** Generate (or return cached for this week) the coach report. */
 export async function GET(request: Request) {
+  const rl = checkRateLimit(request, { limit: 30, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const url = new URL(request.url);
     const learnerId = url.searchParams.get("learnerId");
@@ -18,6 +22,6 @@ export async function GET(request: Request) {
     const report = await generateWeeklyReport(learnerId);
     return json(report);
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to generate weekly report", 500);
+    return handleApiError(e, "Failed to generate weekly report");
   }
 }

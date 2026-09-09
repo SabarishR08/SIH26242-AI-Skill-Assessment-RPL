@@ -123,7 +123,17 @@ export default function MilestonePage() {
 
   const onQuizFinished = async (result: QuizResult) => {
     if (result.milestoneCompleted) {
-      toast({ title: "Milestone complete", description: "Gate passed — next phase unlocked." });
+      toast({ title: "Milestone complete", description: "All requirements passed — next phase unlocked." });
+      setGateQuiz(null);
+      await load();
+    } else if (result.passed) {
+      toast({
+        title: "Gate quiz passed",
+        description: milestone?.hasProject
+          ? "Gate quiz passed! Complete and submit the project to finish this phase."
+          : "Gate quiz passed!",
+      });
+      setGateQuiz(null);
       await load();
     } else if (result.replanHappened) {
       toast({
@@ -131,7 +141,7 @@ export default function MilestonePage() {
         description: "Review your score and explanations below. A refresher phase has been added to your roadmap.",
         duration: 8000,
       });
-      // Preserve result view so learner can read score and explanations before returning to roadmap
+      // Preserve result view so learner can read score before returning to roadmap
     } else {
       await load();
     }
@@ -144,8 +154,15 @@ export default function MilestonePage() {
     try {
       const res = await api.submitProject(milestone.project.specId, repoUrl.trim());
       setEvaluation(res.evaluation);
-      if (res.evaluation.verdict === "passed") {
-        toast({ title: "Project verified", description: `Skills marked PROVEN · score ${Math.round(res.evaluation.overallScore * 100)}%` });
+      if (res.milestoneCompleted) {
+        toast({ title: "Phase complete", description: "Project verified and all phase requirements fulfilled!" });
+      } else if (res.evaluation.verdict === "passed") {
+        toast({
+          title: "Project verified",
+          description: milestone.hasGateQuiz
+            ? `Skills marked PROVEN (${Math.round(res.evaluation.overallScore * 100)}%). Complete the gate quiz to finish this phase.`
+            : `Skills marked PROVEN · score ${Math.round(res.evaluation.overallScore * 100)}%`,
+        });
       } else {
         toast({ title: "Needs work", description: res.evaluation.feedback.slice(0, 140), variant: "destructive" });
       }
@@ -463,6 +480,52 @@ export default function MilestonePage() {
           </Card>
         )}
 
+        {/* Phase completion checklist */}
+        {(milestone.hasGateQuiz || milestone.hasProject) && milestone.status !== "complete" && started && (
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                Phase Completion Checklist
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {milestone.hasGateQuiz && (
+                <div className="flex items-center justify-between text-sm py-1 border-b border-border/40 last:border-0">
+                  <span className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" /> Gate Quiz (75% to pass)
+                  </span>
+                  {milestone.gateQuiz?.status === "passed" ? (
+                    <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+                      <CheckCircle2 className="mr-1 h-3 w-3" /> Passed
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">Required</Badge>
+                  )}
+                </div>
+              )}
+              {milestone.hasProject && (
+                <div className="flex items-center justify-between text-sm py-1 border-b border-border/40 last:border-0">
+                  <span className="flex items-center gap-2">
+                    <Hammer className="h-4 w-4 text-violet-400" /> Project Evaluation
+                  </span>
+                  {milestone.project?.submissions.some((s) => s.status === "passed") ? (
+                    <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+                      <CheckCircle2 className="mr-1 h-3 w-3" /> Passed
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">Required</Badge>
+                  )}
+                </div>
+              )}
+              {milestone.hasGateQuiz && milestone.hasProject && (
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  Both the gate quiz and the project must be completed to unlock the next phase.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Gate quiz */}
         {milestone.hasGateQuiz && started && milestone.status !== "complete" && !gateQuiz && (
           <Card className="glass-card">
@@ -483,7 +546,7 @@ export default function MilestonePage() {
           </Card>
         )}
 
-        {gateQuiz && (
+        {gateQuiz && milestone.status !== "complete" && (
           <QuizRunner
             quiz={gateQuiz}
             onSubmit={(qid, answers) => api.submitQuiz(qid, answers, learnerId ?? undefined)}

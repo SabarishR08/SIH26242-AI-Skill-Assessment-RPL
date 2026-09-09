@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { replanPath, type ReplanReason } from "@/lib/path/replan";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -16,6 +17,9 @@ const VALID_REASONS: ReplanReason[] = ["quiz_failed", "too_hard", "too_easy", "t
 
 /** Manual/feedback-triggered replan with diff. */
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 20, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const body = await readJson<Body>(request);
     if (!body.learnerId || !body.reason) return apiError("learnerId and reason are required");
@@ -28,8 +32,9 @@ export async function POST(request: Request) {
       failedMilestoneId: body.milestoneId,
       feedbackComment: body.comment,
     });
+
     return json(outcome);
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to replan", 500);
+    return handleApiError(e, "Replan failed");
   }
 }

@@ -84,7 +84,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const p = params.get("passport") || params.get("learner");
+      const p =
+        params.get("shareToken") ||
+        params.get("token") ||
+        params.get("passport") ||
+        params.get("passportId") ||
+        params.get("learner");
       if (p) {
         setSharedPassportId(p);
         setPassportOpen(true);
@@ -194,14 +199,14 @@ export default function DashboardPage() {
   const streak = Number(metrics.streakDays ?? 0);
 
   return (
-    <AppShell learnerName={learner.name} onReset={() => { setLearnerId(null); router.push("/onboarding"); }}>
+    <AppShell learnerName={learner.name} onReset={sharedPassportId ? undefined : () => { setLearnerId(null); router.push("/onboarding"); }}>
       {sharedPassportId && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-sm shadow-sm backdrop-blur-md">
           <div className="flex items-center gap-2.5">
             <Award className="h-5 w-5 text-primary shrink-0" />
             <div>
               <p className="font-medium text-foreground">
-                Viewing Verifiable Skill Passport for <span className="text-primary font-semibold">{learner.name}</span>
+                Viewing Verifiable Skill Passport for <span className="text-primary font-semibold">{learner.name}</span> (Read-Only Preview)
               </p>
               <p className="text-xs text-muted-foreground">
                 Cryptographically authenticated record backed by code challenges and project evaluations
@@ -246,18 +251,20 @@ export default function DashboardPage() {
           >
             <Award className="mr-1.5 h-4 w-4" /> View Skill Passport
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/path">
-              <RouteIcon className="mr-1.5 h-4 w-4" /> My Roadmap
-            </Link>
-          </Button>
+          {!sharedPassportId && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/path">
+                <RouteIcon className="mr-1.5 h-4 w-4" /> My Roadmap
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Header stats */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6 min-w-0 max-w-full">
-        <Card className="glass-card">
-          <CardContent className="pt-5 pb-4">
+        <Card className="glass-card min-w-0 max-w-full overflow-hidden">
+          <CardContent className="pt-5 pb-4 min-w-0 overflow-hidden">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Path progress</p>
@@ -270,13 +277,13 @@ export default function DashboardPage() {
                   </p>
                 )}
               </div>
-              <RouteIcon className="h-8 w-8 text-primary/60" />
+              <RouteIcon className="h-8 w-8 text-primary/60 shrink-0" />
             </div>
             {path && <Progress value={path.progress.percent} className="h-1.5 mt-3" />}
           </CardContent>
         </Card>
-        <Card className="glass-card">
-          <CardContent className="pt-5 pb-4 flex items-center justify-between">
+        <Card className="glass-card min-w-0 max-w-full overflow-hidden">
+          <CardContent className="pt-5 pb-4 flex items-center justify-between min-w-0 overflow-hidden">
             <div>
               <p className="text-xs text-muted-foreground">Proven skills</p>
               <p className="text-2xl font-semibold text-primary">{skills.tiers.proven}</p>
@@ -284,46 +291,46 @@ export default function DashboardPage() {
                 +{skills.tiers.verified} verified · +{skills.tiers.claimed} claimed
               </p>
             </div>
-            <ShieldCheck className="h-8 w-8 text-primary/60" />
+            <ShieldCheck className="h-8 w-8 text-primary/60 shrink-0" />
           </CardContent>
         </Card>
-        <Card className="glass-card">
-          <CardContent className="pt-5 pb-4 flex items-center justify-between">
+        <Card className="glass-card min-w-0 max-w-full overflow-hidden">
+          <CardContent className="pt-5 pb-4 flex items-center justify-between min-w-0 overflow-hidden">
             <div>
               <p className="text-xs text-muted-foreground">Learning streak</p>
               <p className="text-2xl font-semibold">{streak}d</p>
               <p className="text-[11px] text-muted-foreground">{learner.hoursPerWeek}h/week budget</p>
             </div>
-            <Flame className={cn("h-8 w-8", streak > 0 ? "text-amber-400" : "text-muted-foreground/40")} />
+            <Flame className={cn("h-8 w-8 shrink-0", streak > 0 ? "text-amber-400" : "text-muted-foreground/40")} />
           </CardContent>
         </Card>
-        <Card className="glass-card">
-          <CardContent className="pt-5 pb-4 flex items-center justify-between">
-            <div>
+        <Card className="glass-card min-w-0 max-w-full overflow-hidden">
+          <CardContent className="pt-5 pb-4 flex items-center justify-between min-w-0 overflow-hidden">
+            <div className="min-w-0 flex-1 mr-2">
               <p className="text-xs text-muted-foreground">Next milestone</p>
-              <p className="text-sm font-semibold leading-tight mt-0.5">
+              <p className="text-sm font-semibold leading-tight mt-0.5 truncate">
                 {path?.nextMilestone ? path.nextMilestone.title : "All done — replan?"}
               </p>
               {path?.nextMilestone?.targetEnd && (
-                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
-                  <CalendarClock className="h-3 w-3" /> target {path.nextMilestone.targetEnd}
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1 truncate">
+                  <CalendarClock className="h-3 w-3 shrink-0" /> target {path.nextMilestone.targetEnd}
                 </p>
               )}
             </div>
-            <Clock className="h-8 w-8 text-primary/60" />
+            <Clock className="h-8 w-8 text-primary/60 shrink-0" />
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3 mb-6 min-w-0 max-w-full">
         {/* Next best actions */}
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
+        <Card className="glass-card min-w-0 max-w-full overflow-hidden">
+          <CardHeader className="pb-2 min-w-0">
             <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" /> Next best actions
+              <Sparkles className="h-4 w-4 text-primary shrink-0" /> Next best actions
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 min-w-0 overflow-hidden">
             {actions.length === 0 && (
               <p className="text-sm text-muted-foreground">Nothing urgent — keep going at your pace.</p>
             )}
@@ -332,8 +339,12 @@ export default function DashboardPage() {
               return (
                 <button
                   key={i}
-                  className="w-full flex items-center gap-3 rounded-lg border border-border/60 p-3 text-left hover:bg-secondary/60 transition-colors group"
+                  className="w-full max-w-full min-w-0 flex items-center gap-2.5 sm:gap-3 rounded-lg border border-border/60 p-2.5 sm:p-3 text-left hover:bg-secondary/60 transition-colors group overflow-hidden"
                   onClick={() => {
+                    if (sharedPassportId) {
+                      setPassportOpen(true);
+                      return;
+                    }
                     if (a.kind === "start_milestone" && path?.nextMilestone) router.push(`/milestone/${path.nextMilestone.id}`);
                     else if (a.kind === "submit_project" && path?.nextMilestone) router.push(`/milestone/${path.nextMilestone.id}`);
                     else if (a.kind === "gate_quiz" && path?.nextMilestone) router.push(`/milestone/${path.nextMilestone.id}`);
@@ -344,8 +355,8 @@ export default function DashboardPage() {
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/12">
                     <Icon className="h-4 w-4 text-primary" />
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium leading-tight">{a.label}</p>
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <p className="text-sm font-medium leading-tight truncate">{a.label}</p>
                     <p className="text-xs text-muted-foreground truncate">{a.detail}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
@@ -356,7 +367,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Radar */}
-        <Card className="glass-card">
+        <Card className="glass-card min-w-0 max-w-full overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Target className="h-4 w-4 text-primary" /> Skill radar
@@ -369,13 +380,13 @@ export default function DashboardPage() {
         </Card>
 
         {/* Momentum + top skills */}
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
+        <Card className="glass-card min-w-0 max-w-full overflow-hidden">
+          <CardHeader className="pb-2 min-w-0">
             <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" /> Momentum
+              <Activity className="h-4 w-4 text-primary shrink-0" /> Momentum
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 min-w-0 overflow-hidden">
             <ResponsiveContainer width="100%" height={110}>
               <BarChart data={momentum}>
                 <XAxis dataKey="day" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
@@ -386,10 +397,10 @@ export default function DashboardPage() {
                 <Bar dataKey="count" fill="oklch(0.72 0.14 162)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               {skills.top.slice(0, 4).map((s) => (
-                <div key={s.name} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="truncate">{s.name}</span>
+                <div key={s.name} className="flex items-center justify-between gap-2 text-xs min-w-0">
+                  <span className="truncate min-w-0 flex-1">{s.name}</span>
                   <span className="flex items-center gap-1.5 shrink-0">
                     <span className="text-muted-foreground">Lvl {s.tier === "claimed" ? s.claimed : s.evidenced}/5</span>
                     <TierBadge tier={s.tier} />
@@ -403,16 +414,16 @@ export default function DashboardPage() {
       </div>
 
       {/* Skill graph */}
-      <Card className="glass-card mb-6">
-        <CardHeader className="pb-2">
+      <Card className="glass-card mb-6 min-w-0 max-w-full overflow-hidden">
+        <CardHeader className="pb-2 min-w-0">
           <CardTitle className="text-base flex items-center gap-2">
-            <RouteIcon className="h-4 w-4 text-primary" /> Your prerequisite DAG
+            <RouteIcon className="h-4 w-4 text-primary shrink-0" /> Your prerequisite DAG
           </CardTitle>
           <p className="text-xs text-muted-foreground">
             Green = proven · amber = next up · click any node for the evidence-cited why.
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0 overflow-hidden">
           {pathSkills.length > 0 ? (
             <SkillGraph
               skills={pathSkills}
@@ -431,20 +442,22 @@ export default function DashboardPage() {
 
       {/* Weekly coach + activity */}
       <div className="grid gap-4 lg:grid-cols-2 min-w-0 max-w-full">
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <BrainCircuit className="h-4 w-4 text-primary" /> The Coach — weekly review
+        <Card className="glass-card min-w-0 max-w-full overflow-hidden">
+          <CardHeader className="pb-2 min-w-0">
+            <div className="flex items-center justify-between min-w-0 gap-2">
+              <CardTitle className="text-base flex items-center gap-2 truncate min-w-0">
+                <BrainCircuit className="h-4 w-4 text-primary shrink-0" /> The Coach — weekly review
               </CardTitle>
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={generateWeekly}>
-                <RefreshCw className="mr-1 h-3 w-3" /> {data.weekly ? "Refresh" : "Generate"}
-              </Button>
+              {!sharedPassportId && (
+                <Button variant="ghost" size="sm" className="h-7 text-xs shrink-0" onClick={generateWeekly}>
+                  <RefreshCw className="mr-1 h-3 w-3" /> {data.weekly ? "Refresh" : "Generate"}
+                </Button>
+              )}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0 overflow-hidden">
             {data.weekly ? (
-              <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed [&_strong]:text-primary [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-2"
+              <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed break-words [&_strong]:text-primary [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-2"
                 dangerouslySetInnerHTML={{ __html: markdownToHtml(data.weekly.content) }}
               />
             ) : (
@@ -455,18 +468,18 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
+        <Card className="glass-card min-w-0 max-w-full overflow-hidden">
+          <CardHeader className="pb-2 min-w-0">
             <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" /> Activity feed
+              <Activity className="h-4 w-4 text-primary shrink-0" /> Activity feed
             </CardTitle>
           </CardHeader>
-          <CardContent className="max-h-72 overflow-y-auto thin-scroll space-y-2">
+          <CardContent className="max-h-72 overflow-y-auto thin-scroll space-y-2 min-w-0">
             {activity.length === 0 && <p className="text-sm text-muted-foreground">Quiet so far.</p>}
             {activity.map((a, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 text-xs border-b border-border/40 pb-2 last:border-0">
-                <div className="min-w-0">
-                  <p className="font-medium">{ACTIVITY_LABELS[a.kind] ?? a.kind}</p>
+              <div key={i} className="flex items-center justify-between gap-3 text-xs border-b border-border/40 pb-2 last:border-0 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium truncate">{ACTIVITY_LABELS[a.kind] ?? a.kind}</p>
                   <p className="text-muted-foreground truncate">
                     {typeof a.detail.skillName === "string" ? a.detail.skillName : typeof a.detail.title === "string" ? a.detail.title : ""}
                   </p>

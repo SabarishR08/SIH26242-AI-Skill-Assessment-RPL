@@ -47,20 +47,56 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await applyProjectVerdict(learnerId, skillIds, Math.max(3, Math.round(evaluation.overallScore * 5)));
 
       if (spec.milestone.status !== "complete") {
-        await db.milestone.update({
-          where: { id: spec.milestone.id },
-          data: { status: "complete", completedAt: new Date() },
-        });
-        const { unlockNext } = await import("@/lib/path/replan");
-        await unlockNext(spec.milestone.pathId);
-        await db.activityLog.create({
-          data: {
-            learnerId,
-            kind: "milestone_completed",
-            detailJson: JSON.stringify({ milestoneId: spec.milestone.id, title: spec.milestone.title, via: "project" }),
-          },
-        });
-        milestoneCompleted = true;
+        // If milestone has a gate quiz, check if the gate quiz is passed
+        let quizPassed = true;
+        if (spec.milestone.hasGateQuiz) {
+          const passedQuiz = await db.quiz.findFirst({
+            where: {
+              milestoneId: spec.milestone.id,
+              kind: "milestone_gate",
+              status: "passed",
+            },
+          });
+          quizPassed = !!passedQuiz;
+        }
+
+        if (quizPassed) {
+          await db.milestone.update({
+            where: { id: spec.milestone.id },
+            data: { status: "complete", completedAt: new Date() },
+          });
+          const { unlockNext } = await import("@/lib/path/replan");
+          await unlockNext(spec.milestone.pathId);
+
+          // Clean up any remaining pending quizzes for this milestone
+          await db.quiz.updateMany({
+            where: { milestoneId: spec.milestone.id, status: "pending" },
+            data: { status: "passed" },
+          });
+
+          // Clear quiz_failed replan reason if present
+          const path = await db.learningPath.findUnique({ where: { id: spec.milestone.pathId } });
+          if (path?.replanReason === "quiz_failed") {
+            await db.learningPath.update({ where: { id: path.id }, data: { replanReason: null } });
+          }
+
+          await db.activityLog.create({
+            data: {
+              learnerId,
+              kind: "milestone_completed",
+              detailJson: JSON.stringify({ milestoneId: spec.milestone.id, title: spec.milestone.title, via: "project" }),
+            },
+          });
+          milestoneCompleted = true;
+        } else {
+          // Gate quiz is still required — keep milestone in_progress
+          if (spec.milestone.status !== "in_progress") {
+            await db.milestone.update({
+              where: { id: spec.milestone.id },
+              data: { status: "in_progress" },
+            });
+          }
+        }
       }
     }
 

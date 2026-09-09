@@ -8,6 +8,7 @@ const mockDb = vi.hoisted(() => ({
   },
   learningPath: {
     count: vi.fn().mockResolvedValue(0),
+    findFirst: vi.fn().mockResolvedValue(null),
     create: vi.fn().mockImplementation((args: any) =>
       Promise.resolve({ id: "path-1", version: 1, ...args.data })
     ),
@@ -119,6 +120,7 @@ describe("generatePath", () => {
     vi.clearAllMocks();
     mockDb.learner.findUnique.mockResolvedValue({ id: "learner-1", name: "Test" });
     mockDb.learningPath.count.mockResolvedValue(0);
+    mockDb.learningPath.findFirst.mockResolvedValue(null);
     mockDb.learningPath.create.mockImplementation((args: any) =>
       Promise.resolve({ id: "path-1", version: 1, ...args.data })
     );
@@ -322,5 +324,26 @@ describe("SCENARIO_META", () => {
       expect(SCENARIO_META[scenario].label.length).toBeGreaterThan(0);
       expect(SCENARIO_META[scenario].description.length).toBeGreaterThan(20);
     }
+  });
+
+  it("increments version monotonically across concurrent generations", async () => {
+    let currentVersion = 0;
+    mockDb.learningPath.findFirst.mockImplementation(() =>
+      Promise.resolve(currentVersion > 0 ? { version: currentVersion } : null)
+    );
+    mockDb.learningPath.count.mockImplementation(() => Promise.resolve(currentVersion));
+    mockDb.learningPath.create.mockImplementation((args: any) => {
+      currentVersion = args.data.version;
+      return Promise.resolve({ id: `path-${currentVersion}`, version: currentVersion, ...args.data });
+    });
+
+    const results = await Promise.all([
+      generatePath({ learnerId: "learner-concurrent", goalSkillId: "next", scenario: "balanced", hoursPerWeek: 10 }),
+      generatePath({ learnerId: "learner-concurrent", goalSkillId: "next", scenario: "balanced", hoursPerWeek: 10 }),
+      generatePath({ learnerId: "learner-concurrent", goalSkillId: "next", scenario: "balanced", hoursPerWeek: 10 }),
+    ]);
+
+    const versions = results.map((r) => r.version).sort((a, b) => a - b);
+    expect(versions).toEqual([1, 2, 3]);
   });
 });

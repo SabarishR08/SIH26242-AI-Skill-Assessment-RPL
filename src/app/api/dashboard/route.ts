@@ -14,24 +14,15 @@ export async function GET(request: Request) {
     const queryId = url.searchParams.get("learnerId") || url.searchParams.get("passport") || url.searchParams.get("id");
     if (!queryId) return apiError("learnerId is required", 400);
 
-    let learner = await db.learner.findUnique({ where: { id: queryId } });
-    if (!learner && queryId.startsWith("PF-PASS-") && typeof (db.learner as any).findMany === "function") {
-      const allLearners = await db.learner.findMany({
-        include: { assessments: true, evidence: true, quizzes: true },
-      });
-      for (const candidate of allLearners) {
-        const verifiedCount = candidate.assessments.filter((a: any) => a.tier === "proven" || a.tier === "verified" || a.evidencedLevel >= 3).length;
-        const evalCount = candidate.evidence.filter((e: any) => e.source === "project").length;
-        const quizCount = candidate.quizzes.filter((q: any) => q.status === "passed").length;
-        const payload = `${candidate.id}:${candidate.name}:${verifiedCount}:${evalCount}:${quizCount}`;
-        const { createHash } = await import("crypto");
-        const hash = createHash("sha256").update(payload).digest("hex").slice(0, 16);
-        if (`PF-PASS-${hash.toUpperCase()}` === queryId) {
-          learner = candidate;
-          break;
-        }
-      }
-    }
+    let learner = await db.learner.findFirst({
+      where: {
+        OR: [
+          { id: queryId },
+          { passportId: queryId },
+          { passportShareToken: queryId },
+        ],
+      },
+    });
     if (!learner) return apiError("Learner not found", 404);
     const learnerId = learner.id;
 
@@ -83,8 +74,8 @@ export async function GET(request: Request) {
     if (current?.status === "in_progress" && current.hasProject) {
       actions.push({ kind: "submit_project", label: "Submit your project repo", detail: "Proof beats completion — get it evaluated" });
     }
-    const pendingQuiz = activePath
-      ? await db.quiz.findFirst({ where: { learnerId, milestoneId: current?.id, status: "pending", kind: "milestone_gate" } })
+    const pendingQuiz = (activePath && current && current.status === "in_progress")
+      ? await db.quiz.findFirst({ where: { learnerId, milestoneId: current.id, status: "pending", kind: "milestone_gate" } })
       : null;
     if (pendingQuiz && current?.status === "in_progress") {
       actions.push({ kind: "gate_quiz", label: "Take the gate quiz", detail: `Pass to complete ${current.phase}` });

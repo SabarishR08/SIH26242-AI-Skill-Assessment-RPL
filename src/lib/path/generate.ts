@@ -14,7 +14,7 @@
 import { db } from "@/lib/db";
 import { buildGeneratedPath, computeDepths, phasePartitions } from "@/lib/engine";
 import { scheduleMilestones, milestoneHours } from "@/lib/engine/time";
-import { loadSkillNeighbors } from "@/lib/ml/artifacts";
+import { loadSkillNeighbors, loadEquivalenceMap } from "@/lib/ml/artifacts";
 import type { MilestoneDraft } from "./types";
 
 export type Scenario = "balanced" | "intensive" | "exploratory";
@@ -72,7 +72,15 @@ export interface GenerationOutcome {
 }
 
 export async function generatePath(input: PathGenerationInput): Promise<GenerationOutcome> {
-  const { learnerId, goalSkillId, scenario, hoursPerWeek, knownSkillIds, evidencedLevels } = input;
+  const { learnerId, goalSkillId, scenario, hoursPerWeek } = input;
+  let knownSkillIds = input.knownSkillIds;
+  let evidencedLevels = input.evidencedLevels;
+
+  if (!knownSkillIds || !evidencedLevels) {
+    const knownData = await knownSkillIdsFor(learnerId);
+    knownSkillIds = knownSkillIds ?? knownData.known;
+    evidencedLevels = evidencedLevels ?? knownData.levels;
+  }
 
   const algorithm = scenario === "intensive" ? "kahn-spt" : "dfs-topological";
   const generated = await buildGeneratedPath({
@@ -191,20 +199,51 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
     new Date(),
   );
 
+const learnerLocks = new Map<string, Promise<unknown>>();
+
+async function withLearnerLock<T>(learnerId: string, fn: () => Promise<T>): Promise<T> {
+  const current = learnerLocks.get(learnerId) ?? Promise.resolve();
+  let release: () => void;
+  const next = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  learnerLocks.set(learnerId, current.then(() => next, () => next));
+  try {
+    await current;
+    return await fn();
+  } finally {
+    release!();
+    if (learnerLocks.get(learnerId) === next) {
+      learnerLocks.delete(learnerId);
+    }
+  }
+}
+
   const learner = await db.learner.findUnique({ where: { id: learnerId } });
   const assessments = await db.skillAssessment.findMany({ where: { learnerId } });
+  const totalSkillsCount = generated.skills.length + adjacentSkills.length;
 
   const executeWrite = async (tx: any) => {
-    const existingCount = await tx.learningPath.count({ where: { learnerId } });
+    const latest = typeof tx.learningPath.findFirst === "function"
+      ? await tx.learningPath.findFirst({
+          where: { learnerId },
+          orderBy: { version: "desc" },
+          select: { version: true },
+        })
+      : null;
+    const existingCount = typeof tx.learningPath.count === "function"
+      ? await tx.learningPath.count({ where: { learnerId } })
+      : 0;
+    const version = latest?.version != null ? latest.version + 1 : existingCount + 1;
 
     const newPath = await tx.learningPath.create({
       data: {
         learnerId,
-        version: existingCount + 1,
+        version,
         scenario,
         algorithm,
         isActive: true,
-        totalSkills: generated.skills.length,
+        totalSkills: totalSkillsCount,
         totalHours: drafts.reduce((s, d) => s + d.estimatedHours, 0),
         hoursPerWeek,
         snapshotJson: JSON.stringify({
@@ -263,16 +302,18 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
     return newPath;
   };
 
-  const path = typeof db.$transaction === "function"
-    ? await db.$transaction(executeWrite)
-    : await executeWrite(db);
+  const path = await withLearnerLock(learnerId, async () => {
+    return typeof db.$transaction === "function"
+      ? await db.$transaction(executeWrite)
+      : await executeWrite(db);
+  });
 
   const lastEnd = scheduled.length ? scheduled[scheduled.length - 1].endAt : new Date();
 
   return {
     pathId: path.id,
     version: path.version,
-    totalSkills: generated.skills.length,
+    totalSkills: totalSkillsCount,
     totalHours: path.totalHours,
     milestones: drafts,
     algorithm,
@@ -283,10 +324,23 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
 /** The set of skills the engine treats as already known. */
 export async function knownSkillIdsFor(learnerId: string): Promise<{ known: string[]; levels: Record<string, number> }> {
   const assessments = await db.skillAssessment.findMany({ where: { learnerId } });
-  const known = assessments.filter((a) => a.evidencedLevel >= 3).map((a) => a.skillId);
+  const equivalence = await loadEquivalenceMap();
+  const knownSet = new Set<string>();
   const levels: Record<string, number> = {};
-  for (const a of assessments) levels[a.skillId] = a.evidencedLevel;
-  return { known, levels };
+
+  for (const a of assessments) {
+    levels[a.skillId] = a.evidencedLevel;
+    if (a.evidencedLevel >= 3) {
+      knownSet.add(a.skillId);
+      for (const twin of equivalence[a.skillId] ?? []) {
+        knownSet.add(twin);
+        if (!levels[twin] || a.evidencedLevel > levels[twin]) {
+          levels[twin] = a.evidencedLevel;
+        }
+      }
+    }
+  }
+  return { known: Array.from(knownSet), levels };
 }
 
 /** Scenario preview (no persistence) for the scenario picker UI. */
@@ -305,7 +359,8 @@ export async function previewScenarios(input: Omit<PathGenerationInput, "scenari
     const depths = computeDepths(generated.graph);
     const phases = phasePartitions(generated.skills.map((s) => s.skillId), depths);
 
-    let adjacentCount = 0;
+    let adjacentMilestones = 0;
+    let adjacentSkillsCount = 0;
     let adjacentHours = 0;
     if (scenario === "exploratory") {
       const knownSet = new Set(input.knownSkillIds ?? []);
@@ -322,7 +377,8 @@ export async function previewScenarios(input: Omit<PathGenerationInput, "scenari
           .map((s) => s.id);
       }
       if (adjacent.length) {
-        adjacentCount = 1;
+        adjacentMilestones = 1;
+        adjacentSkillsCount = adjacent.length;
         adjacentHours = milestoneHours({ skillHours: adjacent.length * 8, hasProject: true, hasQuiz: true });
       }
     }
@@ -332,7 +388,7 @@ export async function previewScenarios(input: Omit<PathGenerationInput, "scenari
       const pIndex = idx + 1;
       const skillMeta = phaseSkills.map((id) => generated.skills.find((s) => s.skillId === id)).filter(Boolean);
       const hours = skillMeta.reduce((sum, s) => sum + (s?.estimatedHours ?? 8), 0);
-      const isFinalPhase = adjacentCount === 0 && pIndex === phases.length;
+      const isFinalPhase = adjacentMilestones === 0 && pIndex === phases.length;
       const hasProject = scenario === "exploratory" && isFinalPhase
         ? true
         : scenario === "intensive"
@@ -342,10 +398,10 @@ export async function previewScenarios(input: Omit<PathGenerationInput, "scenari
     });
     totalHours += adjacentHours;
 
-    const totalMilestones = phases.length + adjacentCount;
+    const totalMilestones = phases.length + adjacentMilestones;
     outcomes.push({
       scenario,
-      totalSkills: generated.skills.length + (adjacentCount > 0 ? 3 : 0),
+      totalSkills: generated.skills.length + adjacentSkillsCount,
       totalHours,
       etaWeeks: Math.max(1, Math.round(totalHours / Math.max(1, input.hoursPerWeek))),
       algorithm: generated.algorithm,

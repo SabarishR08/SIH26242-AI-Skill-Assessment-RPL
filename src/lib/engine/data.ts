@@ -105,7 +105,23 @@ export async function loadCatalogue(): Promise<CourseCatalogue> {
   for (const [sid, list] of Object.entries(buckets)) {
     list.sort((a, b) => (b.Rating ?? 0) - (a.Rating ?? 0) || (b.Viewers ?? 0) - (a.Viewers ?? 0));
     coursesForSkill[sid] = list.map((c) => c.course_id);
-    const months = list.map((c) => c.DurationMonths).filter((m): m is number => m != null);
+    const months = list
+      .map((c) => {
+        const raw = (c.DurationRaw || "").toLowerCase();
+        const m = raw.match(/(\d+(?:\.\d+)?)/);
+        if (m) {
+          const val = parseFloat(m[1]);
+          if (Number.isFinite(val) && val > 0) {
+            if (raw.includes("hour")) return val / 14;
+            if (raw.includes("week")) return val / 4;
+            if (raw.includes("month")) return val;
+            if (val > 12) return val / 14;
+            return val;
+          }
+        }
+        return c.DurationMonths;
+      })
+      .filter((m): m is number => m != null && m > 0);
     skillMonths[sid] = months.length ? median(months) : 2;
   }
 
