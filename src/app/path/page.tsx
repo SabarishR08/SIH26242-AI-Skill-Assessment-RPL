@@ -88,6 +88,14 @@ export default function PathPage() {
 
   useEffect(() => {
     if (!hydrated) return;
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("shareToken") || params.get("token") || params.get("passport") || params.get("passportId") || params.get("learner");
+      if (token) {
+        router.push(`/dashboard?shareToken=${token}`);
+        return;
+      }
+    }
     if (!learnerId) {
       router.push("/onboarding");
       return;

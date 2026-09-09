@@ -75,8 +75,28 @@ export default function DashboardPage() {
   const [explainOpen, setExplainOpen] = useState(false);
   const [explainText, setExplainText] = useState<string>("");
   const [explainLoading, setExplainLoading] = useState(false);
-  const [passportOpen, setPassportOpen] = useState(false);
-  const [sharedPassportId, setSharedPassportId] = useState<string | null>(null);
+  const [passportOpen, setPassportOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return Boolean(
+      params.get("shareToken") ||
+      params.get("token") ||
+      params.get("passport") ||
+      params.get("passportId") ||
+      params.get("learner")
+    );
+  });
+  const [sharedPassportId, setSharedPassportId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    return (
+      params.get("shareToken") ||
+      params.get("token") ||
+      params.get("passport") ||
+      params.get("passportId") ||
+      params.get("learner")
+    );
+  });
   const [pathEdges, setPathEdges] = useState<Array<[string, string]>>([]);
   const [pathSkills, setPathSkills] = useState<Array<{ id: string; name: string; domain: string; depth: number; hours: number }>>([]);
   const [masteredSkills, setMasteredSkills] = useState<string[]>([]);
@@ -126,14 +146,21 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!hydrated) return;
-    if (sharedPassportId) {
+    const isSharedView = Boolean(
+      sharedPassportId ||
+      (typeof window !== "undefined" &&
+        (new URLSearchParams(window.location.search).get("shareToken") ||
+         new URLSearchParams(window.location.search).get("token") ||
+         new URLSearchParams(window.location.search).get("passport") ||
+         new URLSearchParams(window.location.search).get("passportId") ||
+         new URLSearchParams(window.location.search).get("learner")))
+    );
+
+    if (isSharedView) {
       void load();
       return;
     }
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("passport") || params.get("learner")) return;
-    }
+
     if (!learnerId) {
       router.push("/onboarding");
       return;
@@ -387,16 +414,18 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 min-w-0 overflow-hidden">
-            <ResponsiveContainer width="100%" height={110}>
-              <BarChart data={momentum}>
-                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  cursor={{ fill: "var(--secondary)" }}
-                  contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
-                />
-                <Bar dataKey="count" fill="oklch(0.72 0.14 162)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="w-full max-w-full min-w-0 overflow-hidden [&_.recharts-surface]:overflow-hidden [&_svg]:max-w-full">
+              <ResponsiveContainer width="100%" height={110}>
+                <BarChart data={momentum} margin={{ top: 5, right: 5, bottom: 5, left: -25 }}>
+                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: "var(--secondary)" }}
+                    contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Bar dataKey="count" fill="oklch(0.72 0.14 162)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
             <div className="space-y-1.5 min-w-0">
               {skills.top.slice(0, 4).map((s) => (
                 <div key={s.name} className="flex items-center justify-between gap-2 text-xs min-w-0">

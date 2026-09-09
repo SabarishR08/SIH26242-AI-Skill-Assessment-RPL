@@ -93,14 +93,15 @@ async function withLearnerLock<T>(learnerId: string, fn: () => Promise<T>): Prom
 
 export async function generatePath(input: PathGenerationInput): Promise<GenerationOutcome> {
   const { learnerId, goalSkillId, scenario, hoursPerWeek } = input;
-  let knownSkillIds = input.knownSkillIds;
-  let evidencedLevels = input.evidencedLevels;
+  return withLearnerLock(learnerId, async () => {
+    let knownSkillIds = input.knownSkillIds;
+    let evidencedLevels = input.evidencedLevels;
 
-  if (!knownSkillIds || !evidencedLevels) {
-    const knownData = await knownSkillIdsFor(learnerId);
-    knownSkillIds = knownSkillIds ?? knownData.known;
-    evidencedLevels = evidencedLevels ?? knownData.levels;
-  }
+    if (!knownSkillIds || !evidencedLevels) {
+      const knownData = await knownSkillIdsFor(learnerId);
+      knownSkillIds = knownSkillIds ?? knownData.known;
+      evidencedLevels = evidencedLevels ?? knownData.levels;
+    }
 
   const algorithm = scenario === "intensive" ? "kahn-spt" : "dfs-topological";
   const generated = await buildGeneratedPath({
@@ -304,23 +305,22 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
     return newPath;
   };
 
-  const path = await withLearnerLock(learnerId, async () => {
-    return typeof db.$transaction === "function"
+    const path = typeof db.$transaction === "function"
       ? await db.$transaction(executeWrite)
       : await executeWrite(db);
+
+    const lastEnd = scheduled.length ? scheduled[scheduled.length - 1].endAt : new Date();
+
+    return {
+      pathId: path.id,
+      version: path.version,
+      totalSkills: totalSkillsCount,
+      totalHours: path.totalHours,
+      milestones: drafts,
+      algorithm,
+      etaDate: lastEnd.toISOString().slice(0, 10),
+    };
   });
-
-  const lastEnd = scheduled.length ? scheduled[scheduled.length - 1].endAt : new Date();
-
-  return {
-    pathId: path.id,
-    version: path.version,
-    totalSkills: totalSkillsCount,
-    totalHours: path.totalHours,
-    milestones: drafts,
-    algorithm,
-    etaDate: lastEnd.toISOString().slice(0, 10),
-  };
 }
 
 /** The set of skills the engine treats as already known. */

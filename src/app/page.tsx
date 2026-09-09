@@ -1,10 +1,18 @@
 import Link from "next/link";
+import Script from "next/script";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Compass, Github, BrainCircuit, Activity, BookOpen, Layers } from "lucide-react";
 
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-black">
+      <Script
+        id="passport-forward"
+        strategy="beforeInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `const p = new URLSearchParams(window.location.search); const t = p.get('shareToken') || p.get('token') || p.get('passport') || p.get('passportId'); if (t) window.location.replace('/dashboard?shareToken=' + encodeURIComponent(t));`,
+        }}
+      />
       {/* Ambient background glows */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[100px] pointer-events-none" />

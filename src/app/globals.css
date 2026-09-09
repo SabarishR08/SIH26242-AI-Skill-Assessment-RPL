@@ -212,6 +212,18 @@
 
 html,
 body {
-  max-width: 100%;
-  overflow-x: hidden;
+  max-width: 100vw;
+  overflow-x: clip;
+}
+
+@supports not (overflow-x: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* Ensure SVG text elements never cause horizontal scroll */
+svg {
+  overflow: hidden;
 }

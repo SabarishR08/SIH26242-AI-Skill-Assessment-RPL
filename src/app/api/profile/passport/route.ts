@@ -225,7 +225,7 @@ export async function GET(request: Request) {
 
     // 6. Generate genuine W3C Verifiable Credential 2.0 with real Ed25519 JWS (NEW-03)
     const vcSubjectPayload = {
-      id: `did:pathfinder:learner:${shareToken}`,
+      id: isTokenLookup ? `did:pathfinder:subject:${passportId}` : `did:pathfinder:learner:${shareToken}`,
       name: learner.name,
       targetRole: learner.targetRole ?? "Software Engineer",
       domain: learner.domain ?? "Engineering",

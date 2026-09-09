@@ -64,8 +64,8 @@ function extractHeuristics(history: Array<{ role: string; content: string }>, gr
     profile.goalSkillId = "mob_reactnative";
   }
 
-  // 4. Specific goal skill ID match from skill graph
-  if (graph?.skills) {
+  // 4. Specific goal skill ID match from skill graph (only if not already resolved)
+  if (!profile.goalSkillId && graph?.skills) {
     for (const [id, s] of Object.entries<any>(graph.skills)) {
       const name = s.name.toLowerCase();
       if (name.length >= 4 && lower.includes(name)) {
