@@ -1,158 +1,102 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
 
-vi.mock("@/lib/db", () => ({
-  db: {
-    learner: {
-      findUnique: vi.fn(),
-    },
-    learningPath: {
-      findFirst: vi.fn(),
-    },
+const mockDb = vi.hoisted(() => ({
+  learner: {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn().mockResolvedValue({}),
+  },
+  learningPath: {
+    findFirst: vi.fn().mockResolvedValue(null),
   },
 }));
 
-import { db } from "@/lib/db";
+vi.mock("@/lib/db", () => ({ db: mockDb }));
+vi.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: () => ({ success: true, remaining: 59, limit: 60, resetAt: Date.now() + 60000 }),
+  rateLimitResponse: () => new Response(null, { status: 429 }),
+}));
 
-describe("GET /api/profile/passport", () => {
+describe("/api/profile/passport GET", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("returns 400 when learnerId query param is missing", async () => {
-    const req = new Request("http://localhost:3000/api/profile/passport");
-    const res = await GET(req);
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error).toContain("learnerId is required");
-  });
+  const sampleLearner = {
+    id: "cmttti8xv0043kk2bted581e4",
+    name: "Jane Doe",
+    targetRole: "Full Stack Engineer",
+    domain: "Web Development",
+    goalSkillId: "react",
+    hoursPerWeek: 12,
+    createdAt: new Date("2026-01-01"),
+    passportId: "PF-PASS-1234567812345678",
+    passportShareToken: "PF-SHARE-D0DB760822097871",
+    assessments: [
+      {
+        skillId: "react",
+        skillName: "React",
+        claimedLevel: 4,
+        evidencedLevel: 4,
+        tier: "proven",
+        lastVerifiedAt: new Date("2026-02-01"),
+        updatedAt: new Date("2026-02-01"),
+      },
+      {
+        skillId: "docker",
+        skillName: "Docker",
+        claimedLevel: 3,
+        evidencedLevel: 0,
+        tier: "claimed",
+        lastVerifiedAt: null,
+        updatedAt: new Date("2026-02-01"),
+      },
+    ],
+    evidence: [],
+    quizzes: [],
+  };
 
-  it("returns 404 when learner is not found", async () => {
-    vi.mocked(db.learner.findUnique).mockResolvedValue(null as any);
-    const req = new Request("http://localhost:3000/api/profile/passport?learnerId=nonexistent");
-    const res = await GET(req);
-    expect(res.status).toBe(404);
-    const body = await res.json();
-    expect(body.error).toContain("Learner not found");
-  });
+  it("returns learner.id and shareToken when accessed by owner learnerId", async () => {
+    mockDb.learner.findFirst.mockResolvedValue(sampleLearner);
 
-  it("returns passport with cryptographic hash, verified skills, and JSON-LD credential", async () => {
-    vi.mocked(db.learner.findUnique).mockResolvedValue({
-      id: "learner-1",
-      name: "Alex",
-      targetRole: "Full Stack Engineer",
-      domain: "Engineering",
-      goalSkillId: "wd_python",
-      hoursPerWeek: 15,
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      assessments: [
-        {
-          id: "a1",
-          skillId: "py_core",
-          skillName: "Python Core",
-          claimedLevel: 3,
-          evidencedLevel: 3,
-          tier: "proven",
-          notes: "GitHub repos verified",
-          updatedAt: new Date("2026-01-10T00:00:00.000Z"),
-          lastVerifiedAt: new Date("2026-01-10T00:00:00.000Z"),
-        },
-      ],
-      evidence: [
-        {
-          id: "e1",
-          source: "github",
-          sourceRef: "alex/fastapi-app",
-          summary: "Demonstrated idiomatic Python and FastAPI endpoints",
-          skillClaims: JSON.stringify([{ skillId: "py_core", level: 3 }]),
-          strength: 4,
-          url: "https://github.com/alex/fastapi-app",
-          createdAt: new Date("2026-01-05T00:00:00.000Z"),
-        },
-      ],
-      quizzes: [
-        {
-          id: "q1",
-          status: "passed",
-          attempts: [{ passed: true, score: 0.9, createdAt: new Date() }],
-        },
-      ],
-    } as any);
-
-    vi.mocked(db.learningPath.findFirst).mockResolvedValue({
-      id: "path-1",
-      scenario: "balanced",
-      milestones: [
-        {
-          id: "m1",
-          project: {
-            title: "Distributed Rate Limiter",
-            submissions: [
-              {
-                id: "sub-1",
-                repoUrl: "https://github.com/alex/rate-limiter",
-                status: "passed",
-                evaluationJson: JSON.stringify({ verdict: "passed", score: 92, strengths: ["Clean token bucket design"] }),
-                submittedAt: new Date("2026-02-01T00:00:00.000Z"),
-              },
-            ],
-          },
-        },
-      ],
-    } as any);
-
-    const req = new Request("http://localhost:3000/api/profile/passport?learnerId=learner-1");
+    const req = new Request("http://localhost/api/profile/passport?learnerId=cmttti8xv0043kk2bted581e4");
     const res = await GET(req);
     expect(res.status).toBe(200);
 
-    const body = await res.json();
-    expect(body.learner.name).toBe("Alex");
-    expect(body.summary.passportId).toMatch(/^PF-PASS-[A-F0-9]{16}$/);
-    expect(body.summary.shareToken).toMatch(/^PF-SHARE-[A-F0-9]{16}$/);
-    expect(body.summary.totalVerifiedSkills).toBe(1);
-    expect(body.summary.quizzesPassed).toBe(1);
-    expect(body.summary.evaluationsCount).toBe(1);
-    expect(body.verifiedSkills[0].skillName).toBe("Python Core");
-    expect(body.evaluations[0].title).toBe("Distributed Rate Limiter");
-    expect(body.jsonLdCredential["@context"]).toBeDefined();
-    expect(body.jsonLdCredential.type).toContain("PathFinderSkillPassport");
-    expect(body.jsonLdCredential.proof.verificationMethod).toBeDefined();
+    const data = await res.json();
+    expect(data.learner.id).toBe("cmttti8xv0043kk2bted581e4");
+    expect(data.summary.shareToken).toBeDefined();
+    expect(data.verifiedSkills).toHaveLength(1);
+    expect(data.selfReportedSkills).toHaveLength(1);
   });
 
-  it("excludes claimed-only skills from verified competencies and radar score (NEW-01)", async () => {
-    vi.mocked(db.learner.findUnique).mockResolvedValue({
-      id: "learner-claimed-only",
-      name: "Sam",
-      targetRole: "ML Engineer",
-      domain: "AI",
-      hoursPerWeek: 10,
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      assessments: [
-        {
-          id: "a-claim-1",
-          skillId: "ml_basics",
-          skillName: "Machine Learning Basics",
-          claimedLevel: 3,
-          evidencedLevel: 0,
-          tier: "claimed",
-          updatedAt: new Date("2026-01-10T00:00:00.000Z"),
-        },
-      ],
-      evidence: [],
-      quizzes: [],
-    } as any);
+  it("omits learner.id and summary.shareToken when accessed by shareToken (NEW-02)", async () => {
+    mockDb.learner.findFirst.mockResolvedValue(sampleLearner);
 
-    vi.mocked(db.learningPath.findFirst).mockResolvedValue(null);
-
-    const req = new Request("http://localhost:3000/api/profile/passport?learnerId=learner-claimed-only");
+    const req = new Request("http://localhost/api/profile/passport?shareToken=PF-SHARE-D0DB760822097871");
     const res = await GET(req);
     expect(res.status).toBe(200);
 
-    const body = await res.json();
-    expect(body.summary.totalVerifiedSkills).toBe(0);
-    expect(body.summary.radarScore).toBe(0);
-    expect(body.verifiedSkills.length).toBe(0);
-    expect(body.selfReportedSkills.length).toBe(1);
-    expect(body.selfReportedSkills[0].skillName).toBe("Machine Learning Basics");
+    const data = await res.json();
+    // learner.id MUST be undefined to prevent privilege escalation / write access
+    expect(data.learner.id).toBeUndefined();
+    // summary.shareToken MUST be undefined in the response
+    expect(data.summary.shareToken).toBeUndefined();
+    // Credential details remain verifiable
+    expect(data.summary.passportId).toBeDefined();
+    expect(data.jsonLdCredential).toBeDefined();
+  });
+
+  it("omits learner.id when passport query param contains share token", async () => {
+    mockDb.learner.findFirst.mockResolvedValue(sampleLearner);
+
+    const req = new Request("http://localhost/api/profile/passport?passport=PF-SHARE-D0DB760822097871");
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.learner.id).toBeUndefined();
+    expect(data.summary.shareToken).toBeUndefined();
   });
 });

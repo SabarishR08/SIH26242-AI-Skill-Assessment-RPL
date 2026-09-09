@@ -41,6 +41,13 @@ export async function GET(request: Request) {
 
     if (!queryId) return apiError("learnerId is required", 400);
 
+    const isTokenLookup = Boolean(
+      url.searchParams.get("shareToken") ||
+      url.searchParams.get("token") ||
+      queryId.startsWith("PF-SHARE-") ||
+      queryId.startsWith("PF-PASS-")
+    );
+
     // Direct indexed query: by primary ID, passportId, or passportShareToken (O(1) B-tree lookup)
     let learner =
       typeof db.learner.findFirst === "function"
@@ -257,7 +264,7 @@ export async function GET(request: Request) {
 
     return json({
       learner: {
-        id: learner.id,
+        id: isTokenLookup ? undefined : learner.id,
         name: learner.name,
         targetRole: learner.targetRole,
         domain: learner.domain,
@@ -267,7 +274,7 @@ export async function GET(request: Request) {
       },
       summary: {
         passportId,
-        shareToken,
+        shareToken: isTokenLookup ? undefined : shareToken,
         issuedAt,
         integrityHash: integrityHash.slice(0, 16),
         fullIntegrityHash: integrityHash,

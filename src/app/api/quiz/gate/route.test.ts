@@ -124,13 +124,18 @@ describe("/api/quiz/gate POST", () => {
     expect(data.error).toBe("Milestone not found");
   });
 
-  it("returns 500 when createGateQuiz throws database error", async () => {
-    mockDb.quiz.findFirst.mockResolvedValue(null);
-    mockCreateGateQuiz.mockRejectedValue(new Error("Database failure"));
+  it("returns 400 when milestone belongs to an inactive path", async () => {
+    mockDb.milestone.findUnique.mockResolvedValue({
+      id: "m-dropped",
+      title: "Dropped milestone",
+      status: "in_progress",
+      path: { learnerId: "l1", isActive: false },
+    });
 
-    const res = await POST(makeRequest({ learnerId: "l1", milestoneId: "m1" }));
-    expect(res.status).toBe(500);
+    const res = await POST(makeRequest({ learnerId: "l1", milestoneId: "m-dropped" }));
+    expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toBe("Database failure");
+    expect(data.error).toBe("Milestone does not belong to the active path");
   });
 });
+

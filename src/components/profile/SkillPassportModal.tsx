@@ -104,7 +104,9 @@ export function SkillPassportModal({
             )}
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
-            Cryptographically authenticated competency record backed by GitHub forensic commits, gate quizzes, and project evaluations.
+            {data && data.summary.totalVerifiedSkills > 0
+              ? `Cryptographically authenticated competency record backed by ${data.summary.totalVerifiedSkills} verified skill(s), ${data.summary.quizzesPassed} passed gate(s), and ${data.summary.evaluationsCount} project audit(s).`
+              : "Cryptographically authenticated competency record. Verified credentials appear once milestone gates or project audits are completed."}
           </DialogDescription>
         </DialogHeader>
 
@@ -144,9 +146,15 @@ export function SkillPassportModal({
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-2xl font-bold tracking-tight text-foreground">{data.learner.name}</h3>
-                        <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px]">
-                          <ShieldCheck className="mr-1 h-3 w-3" /> VERIFIED
-                        </Badge>
+                        {data.summary.totalVerifiedSkills > 0 ? (
+                          <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px]">
+                            <ShieldCheck className="mr-1 h-3 w-3" /> VERIFIED
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground border-border/60 text-[10px]">
+                            PROVISIONAL
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5">
                         {data.learner.targetRole || "Full Stack Developer"} · {data.learner.domain || "Engineering"}

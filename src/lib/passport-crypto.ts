@@ -1,10 +1,27 @@
 import crypto from "crypto";
 
 const pkcs8Prefix = Buffer.from("302e020100300506032b657004220420", "hex");
-const seed = crypto
-  .createHash("sha256")
-  .update(process.env.PASSPORT_SIGNING_KEY || "pathfinder-authority-master-seed-2026")
-  .digest();
+
+function getSigningSeed(): Buffer {
+  const envKey = process.env.PASSPORT_SIGNING_KEY?.trim();
+  if (envKey) {
+    return crypto.createHash("sha256").update(envKey).digest();
+  }
+  // Allow next build step without failing if build occurs in an isolated CI container
+  if (process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build") {
+    return crypto.createHash("sha256").update("build-placeholder-key").digest();
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("CRITICAL SECURITY VIOLATION: PASSPORT_SIGNING_KEY must be set in production to mint or verify credentials.");
+  }
+  // In development and test environments, generate a per-process ephemeral seed so no static key is shared
+  if (!(globalThis as any).__pathfinderEphemeralSeed) {
+    (globalThis as any).__pathfinderEphemeralSeed = crypto.randomBytes(32);
+  }
+  return (globalThis as any).__pathfinderEphemeralSeed as Buffer;
+}
+
+const seed = getSigningSeed();
 
 export const privateKey = crypto.createPrivateKey({
   key: Buffer.concat([pkcs8Prefix, seed]),

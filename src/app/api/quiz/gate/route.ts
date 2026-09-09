@@ -28,6 +28,9 @@ export async function POST(request: Request) {
     if (milestone.path && milestone.path.learnerId !== body.learnerId) {
       return apiError("Milestone does not belong to this learner", 403);
     }
+    if (milestone.path && milestone.path.isActive === false) {
+      return apiError("Milestone does not belong to the active path", 400);
+    }
     if (milestone.status === "complete") {
       return apiError("Milestone is already complete", 400);
     }
