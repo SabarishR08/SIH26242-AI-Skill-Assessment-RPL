@@ -84,7 +84,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const p = params.get("passport") || params.get("learner");
+      const p =
+        params.get("shareToken") ||
+        params.get("token") ||
+        params.get("passport") ||
+        params.get("passportId") ||
+        params.get("learner");
       if (p) {
         setSharedPassportId(p);
         setPassportOpen(true);
@@ -194,14 +199,14 @@ export default function DashboardPage() {
   const streak = Number(metrics.streakDays ?? 0);
 
   return (
-    <AppShell learnerName={learner.name} onReset={() => { setLearnerId(null); router.push("/onboarding"); }}>
+    <AppShell learnerName={learner.name} onReset={sharedPassportId ? undefined : () => { setLearnerId(null); router.push("/onboarding"); }}>
       {sharedPassportId && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-sm shadow-sm backdrop-blur-md">
           <div className="flex items-center gap-2.5">
             <Award className="h-5 w-5 text-primary shrink-0" />
             <div>
               <p className="font-medium text-foreground">
-                Viewing Verifiable Skill Passport for <span className="text-primary font-semibold">{learner.name}</span>
+                Viewing Verifiable Skill Passport for <span className="text-primary font-semibold">{learner.name}</span> (Read-Only Preview)
               </p>
               <p className="text-xs text-muted-foreground">
                 Cryptographically authenticated record backed by code challenges and project evaluations
@@ -246,11 +251,13 @@ export default function DashboardPage() {
           >
             <Award className="mr-1.5 h-4 w-4" /> View Skill Passport
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/path">
-              <RouteIcon className="mr-1.5 h-4 w-4" /> My Roadmap
-            </Link>
-          </Button>
+          {!sharedPassportId && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/path">
+                <RouteIcon className="mr-1.5 h-4 w-4" /> My Roadmap
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -334,6 +341,10 @@ export default function DashboardPage() {
                   key={i}
                   className="w-full flex items-center gap-3 rounded-lg border border-border/60 p-3 text-left hover:bg-secondary/60 transition-colors group"
                   onClick={() => {
+                    if (sharedPassportId) {
+                      setPassportOpen(true);
+                      return;
+                    }
                     if (a.kind === "start_milestone" && path?.nextMilestone) router.push(`/milestone/${path.nextMilestone.id}`);
                     else if (a.kind === "submit_project" && path?.nextMilestone) router.push(`/milestone/${path.nextMilestone.id}`);
                     else if (a.kind === "gate_quiz" && path?.nextMilestone) router.push(`/milestone/${path.nextMilestone.id}`);
@@ -437,9 +448,11 @@ export default function DashboardPage() {
               <CardTitle className="text-base flex items-center gap-2">
                 <BrainCircuit className="h-4 w-4 text-primary" /> The Coach — weekly review
               </CardTitle>
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={generateWeekly}>
-                <RefreshCw className="mr-1 h-3 w-3" /> {data.weekly ? "Refresh" : "Generate"}
-              </Button>
+              {!sharedPassportId && (
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={generateWeekly}>
+                  <RefreshCw className="mr-1 h-3 w-3" /> {data.weekly ? "Refresh" : "Generate"}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>

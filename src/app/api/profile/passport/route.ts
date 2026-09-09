@@ -1,10 +1,12 @@
 import { db } from "@/lib/db";
 import { apiError, json } from "@/lib/api-helpers";
 import { createHash } from "crypto";
+import { signEd25519 } from "@/lib/passport-crypto";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-interface VerifiedSkillEntry {
+export interface VerifiedSkillEntry {
   skillId: string;
   skillName: string;
   level: number;
@@ -14,9 +16,9 @@ interface VerifiedSkillEntry {
   evidenceSnippet?: string;
 }
 
-interface ProjectEvaluationEntry {
+export interface ProjectEvaluationEntry {
   title: string;
-  score: number;
+  score: number | null;
   verdict: string;
   submittedAt: string;
   repoUrl: string;
@@ -24,54 +26,60 @@ interface ProjectEvaluationEntry {
 }
 
 export async function GET(request: Request) {
+  const rl = checkRateLimit(request, { limit: 60, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const url = new URL(request.url);
-    const queryId = url.searchParams.get("learnerId") || url.searchParams.get("passport") || url.searchParams.get("id");
+    const queryId =
+      url.searchParams.get("learnerId") ||
+      url.searchParams.get("passport") ||
+      url.searchParams.get("passportId") ||
+      url.searchParams.get("shareToken") ||
+      url.searchParams.get("token") ||
+      url.searchParams.get("id");
+
     if (!queryId) return apiError("learnerId is required", 400);
 
-    let learner = await db.learner.findUnique({
-      where: { id: queryId },
-      include: {
-        assessments: true,
-        evidence: true,
-        quizzes: {
-          include: {
-            attempts: {
-              orderBy: { createdAt: "desc" },
-              take: 1,
+    // Direct indexed query: by primary ID, passportId, or passportShareToken (O(1) B-tree lookup)
+    let learner =
+      typeof db.learner.findFirst === "function"
+        ? await db.learner.findFirst({
+            where: {
+              OR: [
+                { id: queryId },
+                { passportId: queryId },
+                { passportShareToken: queryId },
+              ],
             },
-          },
-        },
-      },
-    });
-
-    if (!learner && queryId.startsWith("PF-PASS-") && typeof (db.learner as any).findMany === "function") {
-      const allLearners = await db.learner.findMany({
-        include: {
-          assessments: true,
-          evidence: true,
-          quizzes: {
             include: {
-              attempts: {
-                orderBy: { createdAt: "desc" },
-                take: 1,
+              assessments: true,
+              evidence: true,
+              quizzes: {
+                include: {
+                  attempts: {
+                    orderBy: { createdAt: "desc" },
+                    take: 1,
+                  },
+                },
               },
             },
-          },
-        },
-      });
-      for (const candidate of allLearners) {
-        const verifiedCount = candidate.assessments.filter((a) => a.tier === "proven" || a.tier === "verified" || a.evidencedLevel >= 3).length;
-        const evalCount = candidate.evidence.filter((e) => e.source === "project").length;
-        const quizCount = candidate.quizzes.filter((q) => q.status === "passed").length;
-        const payload = `${candidate.id}:${candidate.name}:${verifiedCount}:${evalCount}:${quizCount}`;
-        const hash = createHash("sha256").update(payload).digest("hex").slice(0, 16);
-        if (`PF-PASS-${hash.toUpperCase()}` === queryId) {
-          learner = candidate;
-          break;
-        }
-      }
-    }
+          })
+        : await db.learner.findUnique({
+            where: { id: queryId },
+            include: {
+              assessments: true,
+              evidence: true,
+              quizzes: {
+                include: {
+                  attempts: {
+                    orderBy: { createdAt: "desc" },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          });
 
     if (!learner) return apiError("Learner not found", 404);
     const learnerId = learner.id;
@@ -93,24 +101,35 @@ export async function GET(request: Request) {
       },
     });
 
-    // 1. Compile verified skills from assessments and evidence
+    // 1. Compile verified skills vs self-reported skills (NEW-01)
+    // ONLY proven and verified skills qualify as verified competencies.
     const verifiedSkills: VerifiedSkillEntry[] = [];
+    const selfReportedSkills: VerifiedSkillEntry[] = [];
+
     for (const a of learner.assessments) {
-      if (a.evidencedLevel > 0 || a.tier === "proven" || a.tier === "verified") {
-        const matchingEv = learner.evidence.find((e) => e.skillClaims.includes(a.skillId));
-        verifiedSkills.push({
-          skillId: a.skillId,
-          skillName: a.skillName,
-          level: a.evidencedLevel || a.claimedLevel,
-          tier: (a.tier as "proven" | "verified" | "claimed") || (a.evidencedLevel >= 3 ? "proven" : "verified"),
-          source: matchingEv ? `${matchingEv.source} (${matchingEv.sourceRef || "profile"})` : "Calibration Assessment",
-          verifiedAt: (a.lastVerifiedAt ?? a.updatedAt).toISOString(),
-          evidenceSnippet: matchingEv?.summary || a.notes || undefined,
-        });
+      const matchingEv = learner.evidence.find((e) => e.skillClaims.includes(a.skillId));
+      const entry: VerifiedSkillEntry = {
+        skillId: a.skillId,
+        skillName: a.skillName,
+        level: a.evidencedLevel || a.claimedLevel,
+        tier: (a.tier as "proven" | "verified" | "claimed") || (a.evidencedLevel >= 3 ? "proven" : "verified"),
+        source: matchingEv
+          ? `${matchingEv.source} (${matchingEv.sourceRef || "profile"})`
+          : a.tier === "claimed"
+            ? "Self-Reported"
+            : "Calibration Assessment",
+        verifiedAt: (a.lastVerifiedAt ?? a.updatedAt).toISOString(),
+        evidenceSnippet: matchingEv?.summary || a.notes || undefined,
+      };
+
+      if (a.tier === "proven" || a.tier === "verified") {
+        verifiedSkills.push(entry);
+      } else if (a.tier === "claimed" || a.claimedLevel > 0) {
+        selfReportedSkills.push(entry);
       }
     }
 
-    // 2. Compile evaluations from projects
+    // 2. Compile evaluations from projects (NEW-05: no invented scores)
     const evaluations: ProjectEvaluationEntry[] = [];
     if (activePath) {
       for (const m of activePath.milestones) {
@@ -122,16 +141,16 @@ export async function GET(request: Request) {
                 parsedEval = JSON.parse(sub.evaluationJson);
               }
             } catch {
-              // ignore json parse error
+              // ignore parse errors
             }
 
             evaluations.push({
               title: m.project.title,
-              score: parsedEval.score ?? (sub.status === "passed" ? 85 : 60),
+              score: typeof parsedEval.score === "number" ? parsedEval.score : null,
               verdict: parsedEval.verdict ?? sub.status,
               submittedAt: sub.submittedAt.toISOString(),
               repoUrl: sub.repoUrl,
-              keyStrengths: parsedEval.strengths ?? ["Satisfies rubric gate requirements", "Production repository structure"],
+              keyStrengths: Array.isArray(parsedEval.strengths) ? parsedEval.strengths : [],
             });
           }
         }
@@ -143,58 +162,93 @@ export async function GET(request: Request) {
       (q) => q.status === "passed" || q.attempts.some((att) => att.passed),
     );
 
-    // 4. Calculate radar score / mastery index
-    const totalLevel = verifiedSkills.reduce((sum, s) => sum + s.level, 0);
-    const radarScore = verifiedSkills.length > 0 ? Math.min(100, Math.round((totalLevel / (verifiedSkills.length * 5)) * 100)) : 0;
+    // 4. Calculate radar score / mastery index STRICTLY on verified skills (NEW-01)
+    const totalVerifiedLevel = verifiedSkills.reduce((sum, s) => sum + s.level, 0);
+    const radarScore =
+      verifiedSkills.length > 0
+        ? Math.min(100, Math.round((totalVerifiedLevel / (verifiedSkills.length * 5)) * 100))
+        : 0;
 
-    // 5. Generate cryptographic fingerprint & passport ID
-    const passportPayload = `${learner.id}:${learner.name}:${verifiedSkills.length}:${evaluations.length}:${passedQuizzes.length}`;
-    const integrityHash = createHash("sha256").update(passportPayload).digest("hex").slice(0, 16);
-    const passportId = `PF-PASS-${integrityHash.toUpperCase()}`;
+    // 5. Generate content-based integrity hash (NEW-04)
+    // Hash commits to actual subject content (skills, levels, tiers, evaluation verdicts, quiz scores)
+    const canonicalSubject = {
+      learnerId: learner.id,
+      name: learner.name,
+      targetRole: learner.targetRole ?? "Software Engineer",
+      domain: learner.domain ?? "Engineering",
+      goalSkill: learner.goalSkillId ?? "Full Stack Mastery",
+      masteryScore: radarScore,
+      verifiedSkills: verifiedSkills
+        .slice()
+        .sort((a, b) => a.skillId.localeCompare(b.skillId))
+        .map((s) => ({ id: s.skillId, name: s.skillName, level: s.level, tier: s.tier })),
+      evaluations: evaluations
+        .slice()
+        .sort((a, b) => a.title.localeCompare(b.title))
+        .map((e) => ({ title: e.title, verdict: e.verdict, score: e.score, repoUrl: e.repoUrl })),
+      quizzesPassed: passedQuizzes
+        .slice()
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((q) => ({ id: q.id, skillId: q.skillId, score: q.score })),
+    };
+
+    const canonicalSubjectStr = JSON.stringify(canonicalSubject);
+    const integrityHash = createHash("sha256").update(canonicalSubjectStr).digest("hex");
+    const passportId = `PF-PASS-${integrityHash.slice(0, 16).toUpperCase()}`;
+    const shareToken = `PF-SHARE-${createHash("sha256").update(`${learner.id}:${integrityHash.slice(0, 8)}`).digest("hex").slice(0, 16).toUpperCase()}`;
+
+    // Persist passportId and shareToken on learner row if not set or changed (O(1) indexing for future lookups)
+    if (
+      typeof db.learner.update === "function" &&
+      (learner.passportId !== passportId || learner.passportShareToken !== shareToken)
+    ) {
+      await db.learner.update({
+        where: { id: learner.id },
+        data: { passportId, passportShareToken: shareToken },
+      });
+    }
+
     const issuedAt = new Date().toISOString();
+    const rawHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || "pathfinder-ai-61aq.onrender.com";
+    const cleanHost = rawHost.split(":")[0];
+    const didIssuer = `did:web:${cleanHost}`;
 
-    // 6. Generate W3C Verifiable Credential JSON-LD
+    // 6. Generate genuine W3C Verifiable Credential 2.0 with real Ed25519 JWS (NEW-03)
+    const vcSubjectPayload = {
+      id: `did:pathfinder:learner:${shareToken}`,
+      name: learner.name,
+      targetRole: learner.targetRole ?? "Software Engineer",
+      domain: learner.domain ?? "Engineering",
+      goalSkill: learner.goalSkillId ?? "Full Stack Mastery",
+      masteryScore: radarScore,
+      skillsEvidencedCount: verifiedSkills.length,
+      verifiedSkills: canonicalSubject.verifiedSkills,
+      evaluations: canonicalSubject.evaluations,
+    };
+
+    const jws = signEd25519(JSON.stringify(vcSubjectPayload));
+
     const jsonLdCredential = {
       "@context": [
         "https://www.w3.org/2018/credentials/v1",
         "https://w3id.org/security/suites/ed25519-2020/v1",
-        "https://pathfinder-ai.onrender.com/context/v1.jsonld",
+        `https://${cleanHost}/.well-known/did.json`,
       ],
-      id: `urn:uuid:${integrityHash}`,
+      id: `urn:uuid:${integrityHash.slice(0, 32)}`,
       type: ["VerifiableCredential", "PathFinderSkillPassport"],
       issuer: {
-        id: "did:web:pathfinder-ai.onrender.com",
+        id: didIssuer,
         name: "PathFinder AI Credential Authority",
-        verificationMethod: "https://pathfinder-ai.onrender.com/keys/ed25519-pubkey.json",
+        verificationMethod: `${didIssuer}#key-1`,
       },
       issuanceDate: issuedAt,
-      credentialSubject: {
-        id: `did:pathfinder:learner:${learner.id}`,
-        name: learner.name,
-        targetRole: learner.targetRole ?? "Software Engineer",
-        domain: learner.domain ?? "Engineering",
-        goalSkill: learner.goalSkillId ?? "Full Stack Mastery",
-        masteryScore: radarScore,
-        skillsEvidencedCount: verifiedSkills.length,
-        verifiedSkills: verifiedSkills.map((s) => ({
-          name: s.skillName,
-          level: s.level,
-          tier: s.tier,
-          verificationSource: s.source,
-        })),
-        evaluations: evaluations.map((e) => ({
-          projectTitle: e.title,
-          verdict: e.verdict,
-          score: e.score,
-          verifiedRepo: e.repoUrl,
-        })),
-      },
+      credentialSubject: vcSubjectPayload,
       proof: {
         type: "JsonWebSignature2020",
         created: issuedAt,
         proofPurpose: "assertionMethod",
-        verificationMethod: "did:web:pathfinder-ai.onrender.com#key-1",
-        jws: `eyJhbGciOiJFZERTQSI...${integrityHash}`,
+        verificationMethod: `${didIssuer}#key-1`,
+        jws,
       },
     };
 
@@ -210,14 +264,18 @@ export async function GET(request: Request) {
       },
       summary: {
         passportId,
+        shareToken,
         issuedAt,
-        integrityHash,
+        integrityHash: integrityHash.slice(0, 16),
+        fullIntegrityHash: integrityHash,
         totalVerifiedSkills: verifiedSkills.length,
+        totalSelfReportedSkills: selfReportedSkills.length,
         radarScore,
         evaluationsCount: evaluations.length,
         quizzesPassed: passedQuizzes.length,
       },
       verifiedSkills,
+      selfReportedSkills,
       evaluations,
       jsonLdCredential,
     });

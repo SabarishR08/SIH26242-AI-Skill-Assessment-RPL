@@ -498,9 +498,11 @@ export interface SkillPassportData {
   };
   summary: {
     passportId: string;
+    shareToken?: string;
     issuedAt: string;
     integrityHash: string;
     totalVerifiedSkills: number;
+    totalSelfReportedSkills?: number;
     radarScore: number;
     evaluationsCount: number;
     quizzesPassed: number;
@@ -514,9 +516,18 @@ export interface SkillPassportData {
     verifiedAt: string;
     evidenceSnippet?: string;
   }>;
+  selfReportedSkills?: Array<{
+    skillId: string;
+    skillName: string;
+    level: number;
+    tier: "proven" | "verified" | "claimed";
+    source: string;
+    verifiedAt: string;
+    evidenceSnippet?: string;
+  }>;
   evaluations: Array<{
     title: string;
-    score: number;
+    score: number | null;
     verdict: string;
     submittedAt: string;
     repoUrl: string;

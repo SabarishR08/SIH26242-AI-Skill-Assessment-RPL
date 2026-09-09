@@ -108,6 +108,7 @@ describe("GET /api/profile/passport", () => {
     const body = await res.json();
     expect(body.learner.name).toBe("Alex");
     expect(body.summary.passportId).toMatch(/^PF-PASS-[A-F0-9]{16}$/);
+    expect(body.summary.shareToken).toMatch(/^PF-SHARE-[A-F0-9]{16}$/);
     expect(body.summary.totalVerifiedSkills).toBe(1);
     expect(body.summary.quizzesPassed).toBe(1);
     expect(body.summary.evaluationsCount).toBe(1);
@@ -116,5 +117,42 @@ describe("GET /api/profile/passport", () => {
     expect(body.jsonLdCredential["@context"]).toBeDefined();
     expect(body.jsonLdCredential.type).toContain("PathFinderSkillPassport");
     expect(body.jsonLdCredential.proof.verificationMethod).toBeDefined();
+  });
+
+  it("excludes claimed-only skills from verified competencies and radar score (NEW-01)", async () => {
+    vi.mocked(db.learner.findUnique).mockResolvedValue({
+      id: "learner-claimed-only",
+      name: "Sam",
+      targetRole: "ML Engineer",
+      domain: "AI",
+      hoursPerWeek: 10,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      assessments: [
+        {
+          id: "a-claim-1",
+          skillId: "ml_basics",
+          skillName: "Machine Learning Basics",
+          claimedLevel: 3,
+          evidencedLevel: 0,
+          tier: "claimed",
+          updatedAt: new Date("2026-01-10T00:00:00.000Z"),
+        },
+      ],
+      evidence: [],
+      quizzes: [],
+    } as any);
+
+    vi.mocked(db.learningPath.findFirst).mockResolvedValue(null);
+
+    const req = new Request("http://localhost:3000/api/profile/passport?learnerId=learner-claimed-only");
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.summary.totalVerifiedSkills).toBe(0);
+    expect(body.summary.radarScore).toBe(0);
+    expect(body.verifiedSkills.length).toBe(0);
+    expect(body.selfReportedSkills.length).toBe(1);
+    expect(body.selfReportedSkills[0].skillName).toBe("Machine Learning Basics");
   });
 });
