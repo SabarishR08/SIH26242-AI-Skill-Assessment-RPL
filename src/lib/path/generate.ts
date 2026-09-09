@@ -182,68 +182,80 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
   );
 
   const learner = await db.learner.findUnique({ where: { id: learnerId } });
-  const activeVersion = await db.learningPath.count({ where: { learnerId } });
   const assessments = await db.skillAssessment.findMany({ where: { learnerId } });
 
-  const path = await db.learningPath.create({
-    data: {
-      learnerId,
-      version: activeVersion + 1,
-      scenario,
-      algorithm,
-      isActive: true,
-      totalSkills: generated.skills.length,
-      totalHours: drafts.reduce((s, d) => s + d.estimatedHours, 0),
-      hoursPerWeek,
-      snapshotJson: JSON.stringify({
-        goalSkillId,
-        knownSkillIds,
-        evidencedLevels,
-        assessments: assessments.map((a) => ({
-          skillId: a.skillId,
-          claimed: a.claimedLevel,
-          evidenced: a.evidencedLevel,
-          tier: a.tier,
-        })),
-        generatedAt: new Date().toISOString(),
-      }),
-    },
-  });
+  const executeWrite = async (tx: any) => {
+    const existingCount = await tx.learningPath.count({ where: { learnerId } });
 
-  await db.learningPath.updateMany({ where: { learnerId, id: { not: path.id } }, data: { isActive: false } });
-
-  await db.milestone.createMany({
-    data: drafts.map((d, i) => ({
-      pathId: path.id,
-      order: d.order,
-      phase: d.phase,
-      title: d.title,
-      description: d.description,
-      skillIdsJson: JSON.stringify(d.skillIds),
-      skillNamesJson: JSON.stringify(d.skillNames),
-      estimatedHours: d.estimatedHours,
-      status: d.order === firstMilestoneAvailable ? "available" : "locked",
-      hasProject: d.hasProject,
-      hasGateQuiz: d.hasGateQuiz,
-      targetStartAt: scheduled[i].startAt,
-      targetEndAt: scheduled[i].endAt,
-    })),
-  });
-
-  await db.activityLog.create({
-    data: {
-      learnerId,
-      kind: "path_generated",
-      detailJson: JSON.stringify({
-        pathId: path.id,
+    const newPath = await tx.learningPath.create({
+      data: {
+        learnerId,
+        version: existingCount + 1,
         scenario,
-        version: path.version,
-        milestones: drafts.length,
-        totalHours: path.totalHours,
-        goalSkillId,
-      }),
-    },
-  });
+        algorithm,
+        isActive: true,
+        totalSkills: generated.skills.length,
+        totalHours: drafts.reduce((s, d) => s + d.estimatedHours, 0),
+        hoursPerWeek,
+        snapshotJson: JSON.stringify({
+          goalSkillId,
+          knownSkillIds,
+          evidencedLevels,
+          assessments: assessments.map((a: any) => ({
+            skillId: a.skillId,
+            claimed: a.claimedLevel,
+            evidenced: a.evidencedLevel,
+            tier: a.tier,
+          })),
+          generatedAt: new Date().toISOString(),
+        }),
+      },
+    });
+
+    await tx.learningPath.updateMany({
+      where: { learnerId, id: { not: newPath.id } },
+      data: { isActive: false },
+    });
+
+    await tx.milestone.createMany({
+      data: drafts.map((d, i) => ({
+        pathId: newPath.id,
+        order: d.order,
+        phase: d.phase,
+        title: d.title,
+        description: d.description,
+        skillIdsJson: JSON.stringify(d.skillIds),
+        skillNamesJson: JSON.stringify(d.skillNames),
+        estimatedHours: d.estimatedHours,
+        status: d.order === firstMilestoneAvailable ? "available" : "locked",
+        hasProject: d.hasProject,
+        hasGateQuiz: d.hasGateQuiz,
+        targetStartAt: scheduled[i].startAt,
+        targetEndAt: scheduled[i].endAt,
+      })),
+    });
+
+    await tx.activityLog.create({
+      data: {
+        learnerId,
+        kind: "path_generated",
+        detailJson: JSON.stringify({
+          pathId: newPath.id,
+          scenario,
+          version: newPath.version,
+          milestones: drafts.length,
+          totalHours: newPath.totalHours,
+          goalSkillId,
+        }),
+      },
+    });
+
+    return newPath;
+  };
+
+  const path = typeof db.$transaction === "function"
+    ? await db.$transaction(executeWrite)
+    : await executeWrite(db);
 
   const lastEnd = scheduled.length ? scheduled[scheduled.length - 1].endAt : new Date();
 

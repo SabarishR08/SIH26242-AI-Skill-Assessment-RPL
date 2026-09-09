@@ -346,14 +346,17 @@ export async function applyQuizVerdict(
     return;
   }
 
+  const isEstablished = existing.tier === "proven" || existing.tier === "verified";
   const newEvidenced = passed
     ? Math.max(existing.evidencedLevel, targetLevel)
-    : Math.min(existing.evidencedLevel, Math.max(0, Math.round(targetLevel * score)));
+    : isEstablished
+      ? existing.evidencedLevel
+      : Math.min(existing.evidencedLevel, Math.max(0, Math.round(targetLevel * score)));
   const newTier = passed
     ? TIER_RANK[existing.tier] >= TIER_RANK.verified
       ? existing.tier
       : "verified"
-    : existing.tier === "proven"
+    : isEstablished
       ? existing.tier
       : "claimed";
 

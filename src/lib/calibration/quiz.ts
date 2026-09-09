@@ -265,7 +265,8 @@ export async function createCalibrationQuiz(
   const context = learner ? `Goal: ${learner.goalStatement ?? "unknown"}; background from onboarding interview.` : "";
 
   const llmQuestions = await generateQuestionsLlm(gap.skillName, gap.claimedLevel, domain, context);
-  const questions = llmQuestions ?? (await generateQuestionsDeterministic(gap.skillId));
+  const rawQuestions = llmQuestions ?? (await generateQuestionsDeterministic(gap.skillId));
+  const questions = rawQuestions.map(shuffleQuestionDraft);
   const mode: "llm" | "deterministic" = llmQuestions ? "llm" : "deterministic";
 
   const quiz = await db.quiz.create({
@@ -293,10 +294,34 @@ export async function createCalibrationQuiz(
   return { quizId: quiz.id, questions, mode };
 }
 
+export function shuffleQuestionDraft(draft: QuizQuestionDraft): QuizQuestionDraft {
+  const correctOption = draft.options[draft.correctIndex];
+  const shuffled = [...draft.options];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const newIndex = shuffled.indexOf(correctOption);
+  return {
+    ...draft,
+    options: shuffled,
+    correctIndex: newIndex >= 0 ? newIndex : 0,
+  };
+}
+
 export interface QuizGradeResult {
   score: number;
   passed: boolean;
-  breakdown: Array<{ questionId: string; correct: boolean; chosenIndex: number; correctIndex: number; explanation: string }>;
+  attemptsCount: number;
+  attemptsRemaining: number;
+  isTerminal: boolean;
+  breakdown: Array<{
+    questionId: string;
+    correct: boolean;
+    chosenIndex: number;
+    correctIndex?: number;
+    explanation?: string;
+  }>;
   verdict: string;
 }
 
@@ -312,7 +337,8 @@ export async function createGateQuiz(learnerId: string, milestoneId: string): Pr
 
   // Pitch at required level 3 (independent use) — gate = "can you use this without hand-holding".
   const llmQuestions = await generateQuestionsLlmMulti(skillNames, 3, "milestone gate");
-  const questions = llmQuestions ?? (await generateQuestionsDeterministicMulti(skillIds));
+  const rawQuestions = llmQuestions ?? (await generateQuestionsDeterministicMulti(skillIds));
+  const questions = rawQuestions.map(shuffleQuestionDraft);
   const mode: "llm" | "deterministic" = llmQuestions ? "llm" : "deterministic";
 
   const quiz = await db.quiz.create({
@@ -386,7 +412,13 @@ export async function gradeQuiz(quizId: string, answers: number[]): Promise<Quiz
   if (!quiz) throw new Error("Quiz not found");
   const ordered = [...quiz.questions].sort((a, b) => a.order - b.order);
 
-  const breakdown = ordered.map((q, i) => {
+  const priorAttempts = typeof db.quizAttempt?.count === "function"
+    ? await db.quizAttempt.count({ where: { quizId } })
+    : 0;
+  const attemptsCount = priorAttempts + 1;
+  const maxAttempts = 3;
+
+  const rawBreakdown = ordered.map((q, i) => {
     const chosen = answers[i] ?? -1;
     return {
       questionId: q.id,
@@ -396,9 +428,11 @@ export async function gradeQuiz(quizId: string, answers: number[]): Promise<Quiz
       explanation: q.explanation,
     };
   });
-  const correctCount = breakdown.filter((b) => b.correct).length;
+  const correctCount = rawBreakdown.filter((b) => b.correct).length;
   const score = ordered.length ? correctCount / ordered.length : 0;
   const passed = score >= quiz.passScore;
+  const isTerminal = passed || attemptsCount >= maxAttempts;
+  const attemptsRemaining = Math.max(0, maxAttempts - attemptsCount);
 
   await db.quizAttempt.create({
     data: {
@@ -406,25 +440,29 @@ export async function gradeQuiz(quizId: string, answers: number[]): Promise<Quiz
       answersJson: JSON.stringify(answers),
       score,
       passed,
-      breakdownJson: JSON.stringify(breakdown),
+      breakdownJson: JSON.stringify(rawBreakdown),
     },
   });
-  await db.quiz.update({ where: { id: quizId }, data: { status: passed ? "passed" : "failed" } });
+
+  const newStatus = passed ? "passed" : attemptsCount >= maxAttempts ? "failed" : "pending";
+  await db.quiz.update({ where: { id: quizId }, data: { status: newStatus } });
 
   if (quiz.kind === "calibration" && quiz.skillId) {
-    // Calibration quizzes target the claimed level; recover it from the assessment.
-    const assessment = await db.skillAssessment.findUnique({
-      where: { learnerId_skillId: { learnerId: quiz.learnerId, skillId: quiz.skillId } },
-    });
-    const claimed = assessment?.claimedLevel ?? 3;
-    await applyQuizVerdict(quiz.learnerId, quiz.skillId, quiz.skillName ?? "unknown", passed, claimed, score);
-    await db.activityLog.create({
-      data: {
-        learnerId: quiz.learnerId,
-        kind: passed ? "calibrated" : "quiz_failed",
-        detailJson: JSON.stringify({ skillId: quiz.skillId, skillName: quiz.skillName, score, quizKind: quiz.kind }),
-      },
-    });
+    if (passed || attemptsCount >= maxAttempts) {
+      // Calibration quizzes target the claimed level; recover it from the assessment.
+      const assessment = await db.skillAssessment.findUnique({
+        where: { learnerId_skillId: { learnerId: quiz.learnerId, skillId: quiz.skillId } },
+      });
+      const claimed = assessment?.claimedLevel ?? 3;
+      await applyQuizVerdict(quiz.learnerId, quiz.skillId, quiz.skillName ?? "unknown", passed, claimed, score);
+      await db.activityLog.create({
+        data: {
+          learnerId: quiz.learnerId,
+          kind: passed ? "calibrated" : "quiz_failed",
+          detailJson: JSON.stringify({ skillId: quiz.skillId, skillName: quiz.skillName, score, quizKind: quiz.kind }),
+        },
+      });
+    }
   }
 
   if (quiz.kind === "milestone_gate" && quiz.milestoneId && passed) {
@@ -449,7 +487,7 @@ export async function gradeQuiz(quizId: string, answers: number[]): Promise<Quiz
     }
   }
 
-  if (quiz.kind === "milestone_gate" && !passed) {
+  if (quiz.kind === "milestone_gate" && !passed && isTerminal) {
     await db.activityLog.create({
       data: {
         learnerId: quiz.learnerId,
@@ -459,9 +497,27 @@ export async function gradeQuiz(quizId: string, answers: number[]): Promise<Quiz
     });
   }
 
+  // Sanitize breakdown: only leak correctIndex and explanation once the quiz is finished (terminal)
+  const clientBreakdown = rawBreakdown.map((b) => ({
+    questionId: b.questionId,
+    correct: b.correct,
+    chosenIndex: b.chosenIndex,
+    ...(isTerminal ? { correctIndex: b.correctIndex, explanation: b.explanation } : {}),
+  }));
+
   const verdict = passed
     ? `Verified — your ${quiz.skillName ?? "skill"} level is now backed by a passing score (${Math.round(score * 100)}%).`
-    : `Not verified yet — ${Math.round(score * 100)}%. Your evidenced level was adjusted down; the plan will include a refresher before you build on this skill.`;
+    : isTerminal
+      ? `Not verified — ${Math.round(score * 100)}%. Maximum attempts reached (3/3); the plan will include a refresher before you build on this skill.`
+      : `Attempt ${attemptsCount}/3 — ${Math.round(score * 100)}%. Pass mark is 75%. You have ${attemptsRemaining} attempt${attemptsRemaining === 1 ? "" : "s"} remaining.`;
 
-  return { score, passed, breakdown, verdict };
+  return {
+    score,
+    passed,
+    attemptsCount,
+    attemptsRemaining,
+    isTerminal,
+    breakdown: clientBreakdown,
+    verdict,
+  };
 }

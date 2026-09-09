@@ -21,8 +21,11 @@ export interface QuizData {
 export interface QuizResult {
   score: number;
   passed: boolean;
+  attemptsCount?: number;
+  attemptsRemaining?: number;
+  isTerminal?: boolean;
   verdict: string;
-  breakdown: Array<{ questionId: string; correct: boolean; chosenIndex: number; correctIndex: number; explanation: string }>;
+  breakdown: Array<{ questionId: string; correct: boolean; chosenIndex: number; correctIndex?: number; explanation?: string }>;
   milestoneCompleted?: boolean;
   replanHappened?: boolean;
 }
@@ -94,12 +97,14 @@ export function QuizRunner({
                     )}
                     <div className="min-w-0">
                       <p className="font-medium leading-snug">{q.prompt}</p>
-                      {!b.correct && (
+                      {!b.correct && b.correctIndex != null && q.options[b.correctIndex] && (
                         <p className="text-muted-foreground mt-1">
                           Correct answer: <span className="text-foreground">{q.options[b.correctIndex]}</span>
                         </p>
                       )}
-                      <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{b.explanation}</p>
+                      {b.explanation && (
+                        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{b.explanation}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -107,17 +112,19 @@ export function QuizRunner({
             })}
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setResult(null);
-                setAnswers(Array(quiz.questions.length).fill(-1));
-                setCurrent(0);
-              }}
-            >
-              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Review questions
-            </Button>
+            {!result.passed && !result.isTerminal && (result.attemptsRemaining ?? 1) > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setResult(null);
+                  setAnswers(Array(quiz.questions.length).fill(-1));
+                  setCurrent(0);
+                }}
+              >
+                <RotateCcw className="mr-1 h-3.5 w-3.5" /> Retry Attempt ({result.attemptsRemaining} left)
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

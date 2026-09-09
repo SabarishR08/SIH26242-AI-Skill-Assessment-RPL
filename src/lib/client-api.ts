@@ -166,19 +166,22 @@ export const api = {
       }>,
     ),
 
-  submitQuiz: (quizId: string, answers: number[]) =>
+  submitQuiz: (quizId: string, answers: number[], learnerId?: string) =>
     fetch(`/api/quiz/${quizId}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers }),
+      body: JSON.stringify({ answers, learnerId }),
     }).then(
       handle<{
         score: number;
         passed: boolean;
+        attemptsCount: number;
+        attemptsRemaining: number;
+        isTerminal: boolean;
         verdict: string;
         milestoneCompleted: boolean;
         replanHappened: boolean;
-        breakdown: Array<{ questionId: string; correct: boolean; chosenIndex: number; correctIndex: number; explanation: string }>;
+        breakdown: Array<{ questionId: string; correct: boolean; chosenIndex: number; correctIndex?: number; explanation?: string }>;
       }>,
     ),
 

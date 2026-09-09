@@ -701,7 +701,7 @@ export default function OnboardingPage() {
             </Card>
           )}
           {activeQuiz && (
-            <QuizRunner quiz={activeQuiz} onSubmit={(qid, answers) => api.submitQuiz(qid, answers)} onFinished={onQuizFinished} />
+            <QuizRunner quiz={activeQuiz} onSubmit={(qid, answers) => api.submitQuiz(qid, answers, learnerId ?? undefined)} onFinished={onQuizFinished} />
           )}
           {calibrated.length > 0 && (
             <Card className="glass-card">

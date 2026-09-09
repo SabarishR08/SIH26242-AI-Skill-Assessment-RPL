@@ -25,6 +25,7 @@ const mockDb = vi.hoisted(() => ({
   activityLog: {
     create: vi.fn().mockResolvedValue(undefined),
   },
+  $transaction: vi.fn().mockImplementation((cb: (tx: any) => any) => cb(mockDb)),
 }));
 
 const mockSkillGraph = vi.hoisted(() => ({

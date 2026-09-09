@@ -69,7 +69,9 @@ Style rules:
 - Never invent skills for the learner. If unsure, ask.
 
 CRITICAL INSTRUCTIONS:
-- When you have fully satisfied the Phase goal and are ready to move to the next phase, you MUST include the exact phrase "[PHASE_COMPLETE]" at the end of your message. Do NOT use JSON or tool calls. Just append "[PHASE_COMPLETE]" to your text.`;
+- Do NOT rush to complete the phase in a single message. Engage in 2-3 focused, insightful exchanges per phase to gather meaningful detail before moving forward.
+- Only when you have genuinely gathered enough depth for the current phase goal, append "[PHASE_COMPLETE]" at the very end of your response to signal moving to the next phase.
+- If the learner's answer is exceptionally thorough and covers the entire phase goal upfront, you may append "[PHASE_COMPLETE]". Otherwise, ask a natural follow-up question first.`;
 }
 
 
@@ -184,12 +186,18 @@ export async function persistAgentTurn(
   userMessage: string, 
   replyText: string, 
   extractedNew: ExtractedProfile,
-  wantsSkip: boolean
+  optionsOrWantsSkip?: { wantsSkip?: boolean; phaseComplete?: boolean } | boolean
 ): Promise<{ phase: AgentPhase; extracted: ExtractedProfile; roundsInPhase: number }> {
   const state = await db.agentState.findUnique({ where: { learnerId } });
   if (!state) throw new Error("Agent state not found");
   const history: AgentHistoryTurn[] = JSON.parse(state.historyJson || "[]");
   const running: ExtractedProfile = JSON.parse(state.extractedJson || "{}");
+
+  const isOptionsObj = typeof optionsOrWantsSkip === "object" && optionsOrWantsSkip !== null;
+  const wantsSkip = isOptionsObj ? Boolean(optionsOrWantsSkip.wantsSkip) : Boolean(optionsOrWantsSkip);
+  const isPhaseComplete = isOptionsObj
+    ? Boolean(optionsOrWantsSkip.phaseComplete) || Boolean(extractedNew.phaseComplete)
+    : Boolean(extractedNew.phaseComplete);
 
   history.push({ role: "user", content: userMessage });
   history.push({ role: "assistant", content: replyText.slice(0, 2000) || "..." });
@@ -207,6 +215,13 @@ export async function persistAgentTurn(
 
   const roundsInPhase = history.filter((h, i) => h.role === "user" && i >= history.length - 6).length;
   let phase = state.phase as AgentPhase;
+
+  if ((isPhaseComplete || wantsSkip) && phase !== "done") {
+    const idx = PHASE_ORDER.indexOf(phase);
+    if (idx >= 0 && idx < PHASE_ORDER.length - 1) {
+      phase = PHASE_ORDER[idx + 1];
+    }
+  }
 
   await db.agentState.update({
     where: { learnerId },
