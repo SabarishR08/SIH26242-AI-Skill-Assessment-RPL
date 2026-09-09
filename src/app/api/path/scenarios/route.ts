@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { previewScenarios, knownSkillIdsFor } from "@/lib/path/generate";
 import { SCENARIO_META, type Scenario } from "@/lib/path/generate";
 
@@ -39,6 +39,6 @@ export async function POST(request: Request) {
       previews: previews.map((p) => ({ ...p, ...SCENARIO_META[p.scenario as Scenario] })),
     });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to preview scenarios", 500);
+    return handleApiError(e, "Failed to preview scenarios");
   }
 }

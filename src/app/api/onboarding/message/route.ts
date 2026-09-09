@@ -59,7 +59,11 @@ export async function POST(request: Request) {
         yield { type: "delta", text: "…" };
       }
 
-      if (phaseComplete) {
+      const stateBefore = await db.agentState.findUnique({ where: { learnerId: body.learnerId } });
+      const currentRounds = stateBefore?.roundsCompleted ?? 0;
+      const willAdvance = phaseComplete || wantsSkip || currentRounds >= 1;
+
+      if (willAdvance || stateBefore?.phase === "goal" || stateBefore?.phase === "time" || stateBefore?.phase === "wrap_up") {
         const { extractProfile } = await import("@/lib/onboarding/extract");
         extracted = await extractProfile(body.learnerId);
       }

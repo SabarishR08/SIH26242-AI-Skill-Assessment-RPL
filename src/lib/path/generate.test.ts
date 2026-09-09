@@ -113,7 +113,7 @@ vi.mock("@/lib/engine/time", () => ({
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-import { generatePath, knownSkillIdsFor, SCENARIO_META, type Scenario } from "./generate";
+import { generatePath, previewScenarios, knownSkillIdsFor, SCENARIO_META, type Scenario } from "./generate";
 
 describe("generatePath", () => {
   beforeEach(() => {
@@ -346,4 +346,29 @@ describe("SCENARIO_META", () => {
     const versions = results.map((r) => r.version).sort((a, b) => a - b);
     expect(versions).toEqual([1, 2, 3]);
   });
+
+  it("ensures previewScenarios exploratory hours match generatePath totalHours (PF-11)", async () => {
+    const previews = await previewScenarios({
+      learnerId: "learner-1",
+      goalSkillId: "next",
+      hoursPerWeek: 10,
+      knownSkillIds: [],
+      evidencedLevels: {},
+    });
+    const expPreview = previews.find((p) => p.scenario === "exploratory");
+    expect(expPreview).toBeDefined();
+
+    const actualPath = await generatePath({
+      learnerId: "learner-1",
+      goalSkillId: "next",
+      scenario: "exploratory",
+      hoursPerWeek: 10,
+      knownSkillIds: [],
+      evidencedLevels: {},
+    });
+
+    expect(actualPath.totalHours).toBe(expPreview!.totalHours);
+    expect(actualPath.totalSkills).toBe(expPreview!.totalSkills);
+  });
 });
+

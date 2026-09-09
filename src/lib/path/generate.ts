@@ -71,6 +71,26 @@ export interface GenerationOutcome {
   etaDate: string;
 }
 
+const learnerLocks = new Map<string, Promise<unknown>>();
+
+async function withLearnerLock<T>(learnerId: string, fn: () => Promise<T>): Promise<T> {
+  const current = learnerLocks.get(learnerId) ?? Promise.resolve();
+  let release: () => void;
+  const next = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  learnerLocks.set(learnerId, current.then(() => next, () => next));
+  try {
+    await current;
+    return await fn();
+  } finally {
+    release!();
+    if (learnerLocks.get(learnerId) === next) {
+      learnerLocks.delete(learnerId);
+    }
+  }
+}
+
 export async function generatePath(input: PathGenerationInput): Promise<GenerationOutcome> {
   const { learnerId, goalSkillId, scenario, hoursPerWeek } = input;
   let knownSkillIds = input.knownSkillIds;
@@ -139,10 +159,12 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
   let phaseIndex = 1;
 
   const buildDraft = (skillIds: string[], opts: { theme: string; adjacent?: boolean }): MilestoneDraft => {
-    const skillMeta = skillIds.map((id) => generated.skills.find((s) => s.skillId === id)).filter(Boolean);
     const named = skillIds.map((id) => generated.graph.skills[id]?.name ?? id);
     const primaryDepth = Math.max(...skillIds.map((id) => depths[id] ?? 0));
-    const hours = skillMeta.reduce((sum, s) => sum + (s?.estimatedHours ?? 8), 0);
+    const hours = skillIds.reduce(
+      (sum, id) => sum + (generated.skills.find((s) => s.skillId === id)?.estimatedHours ?? 8),
+      0,
+    );
     const meanLevel =
       skillIds.reduce((sum, id) => sum + (evidencedLevels[id] ?? 0), 0) / Math.max(1, skillIds.length);
     const isFinalPhase = opts.adjacent || (adjacentSkills.length === 0 && phaseIndex === phases.length);
@@ -198,26 +220,6 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
     hoursPerWeek,
     new Date(),
   );
-
-const learnerLocks = new Map<string, Promise<unknown>>();
-
-async function withLearnerLock<T>(learnerId: string, fn: () => Promise<T>): Promise<T> {
-  const current = learnerLocks.get(learnerId) ?? Promise.resolve();
-  let release: () => void;
-  const next = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  learnerLocks.set(learnerId, current.then(() => next, () => next));
-  try {
-    await current;
-    return await fn();
-  } finally {
-    release!();
-    if (learnerLocks.get(learnerId) === next) {
-      learnerLocks.delete(learnerId);
-    }
-  }
-}
 
   const learner = await db.learner.findUnique({ where: { id: learnerId } });
   const assessments = await db.skillAssessment.findMany({ where: { learnerId } });

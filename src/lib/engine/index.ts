@@ -10,6 +10,7 @@ import { skillHours, DEFAULT_TIME_MODEL } from "./time";
 import { loadCatalogue, loadEngineData, loadResources, loadSkillGraph } from "./data";
 import { loadSkillNeighbors } from "@/lib/ml/artifacts";
 import { searchSkillsSemantically } from "@/lib/ml/search";
+import { HttpError } from "@/lib/api-helpers";
 import type { Course, CourseCatalogue, FreeResource, GeneratedPath, ResourceIndex, SkillGraph } from "./types";
 
 export * from "./types";
@@ -42,7 +43,7 @@ export async function buildGeneratedPath(options: BuildPathOptions): Promise<Gen
   const { targetSkillId, knownSkillIds, algorithm = "dfs-topological", coursesPerSkill = 2, evidencedLevels = {} } = options;
 
   if (!graph.skills[targetSkillId]) {
-    throw new Error(`Unknown skill: ${targetSkillId}`);
+    throw new HttpError(`Unknown skill: ${targetSkillId}`, 400);
   }
 
   const weights: Record<string, number> = {};
