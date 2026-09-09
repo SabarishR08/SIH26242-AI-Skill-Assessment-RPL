@@ -36,6 +36,11 @@ const nextConfig: NextConfig = {
       "e2e/**",
     ],
   },
+  outputFileTracingIncludes: {
+    "**/*": [
+      "./node_modules/next/dist/server/**/*",
+    ],
+  },
 };
 
 export default nextConfig;
