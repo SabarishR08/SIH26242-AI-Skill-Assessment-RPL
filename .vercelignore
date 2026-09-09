@@ -2,7 +2,7 @@
 .github
 node_modules
 .next
-ml/.venv
-Trained_model
-test-results
+ml/**
+Trained_model/**
+test-results/**
 data/ml/encoder/onnx/model.onnx
