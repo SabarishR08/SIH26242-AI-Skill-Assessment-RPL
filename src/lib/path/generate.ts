@@ -294,14 +294,49 @@ export async function previewScenarios(input: Omit<PathGenerationInput, "scenari
     });
     const depths = computeDepths(generated.graph);
     const phases = phasePartitions(generated.skills.map((s) => s.skillId), depths);
-    const totalHours = generated.totalEstimatedHours + phases.length; // + quiz hours
+
+    let adjacentCount = 0;
+    let adjacentHours = 0;
+    if (scenario === "exploratory") {
+      const knownSet = new Set(input.knownSkillIds ?? []);
+      const pathSet = new Set(generated.skills.map((s) => s.skillId));
+      const eligible = (id: string) => !knownSet.has(id) && !pathSet.has(id);
+      let adjacent = (generated.graph.skills[input.goalSkillId]?.prereqs ?? []).flatMap(
+        (p) => generated.graph.skills[p]?.prereqs ?? []
+      ).filter(eligible).slice(0, 3);
+      if (!adjacent.length) {
+        adjacent = Object.values(generated.graph.skills)
+          .filter((s) => s.domain === generated.domain && eligible(s.id))
+          .sort((a, b) => (depths[b.id] ?? 0) - (depths[a.id] ?? 0))
+          .slice(0, 3)
+          .map((s) => s.id);
+      }
+      if (adjacent.length) {
+        adjacentCount = 1;
+        adjacentHours = milestoneHours({ skillHours: adjacent.length * 8, hasProject: false, hasQuiz: true });
+      }
+    }
+
+    let totalHours = 0;
+    phases.forEach((phaseSkills, idx) => {
+      const pIndex = idx + 1;
+      const skillMeta = phaseSkills.map((id) => generated.skills.find((s) => s.skillId === id)).filter(Boolean);
+      const hours = skillMeta.reduce((sum, s) => sum + (s?.estimatedHours ?? 8), 0);
+      const hasProject = scenario === "intensive"
+        ? pIndex === Math.ceil(phases.length / 2) || pIndex === phases.length
+        : pIndex % 2 === 0 || pIndex === phases.length;
+      totalHours += milestoneHours({ skillHours: hours, hasProject, hasQuiz: true });
+    });
+    totalHours += adjacentHours;
+
+    const totalMilestones = phases.length + adjacentCount;
     outcomes.push({
       scenario,
-      totalSkills: generated.skills.length,
+      totalSkills: generated.skills.length + (adjacentCount > 0 ? 3 : 0),
       totalHours,
       etaWeeks: Math.max(1, Math.round(totalHours / Math.max(1, input.hoursPerWeek))),
       algorithm: generated.algorithm,
-      milestones: phases.length,
+      milestones: totalMilestones,
     });
   }
   return outcomes;

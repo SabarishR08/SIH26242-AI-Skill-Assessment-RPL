@@ -11,11 +11,29 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const learnerId = url.searchParams.get("learnerId");
-    if (!learnerId) return apiError("learnerId is required");
+    const queryId = url.searchParams.get("learnerId") || url.searchParams.get("passport") || url.searchParams.get("id");
+    if (!queryId) return apiError("learnerId is required", 400);
 
-    const learner = await db.learner.findUnique({ where: { id: learnerId } });
+    let learner = await db.learner.findUnique({ where: { id: queryId } });
+    if (!learner && queryId.startsWith("PF-PASS-") && typeof (db.learner as any).findMany === "function") {
+      const allLearners = await db.learner.findMany({
+        include: { assessments: true, evidence: true, quizzes: true },
+      });
+      for (const candidate of allLearners) {
+        const verifiedCount = candidate.assessments.filter((a: any) => a.tier === "proven" || a.tier === "verified" || a.evidencedLevel >= 3).length;
+        const evalCount = candidate.evidence.filter((e: any) => e.source === "project").length;
+        const quizCount = candidate.quizzes.filter((q: any) => q.status === "passed").length;
+        const payload = `${candidate.id}:${candidate.name}:${verifiedCount}:${evalCount}:${quizCount}`;
+        const { createHash } = await import("crypto");
+        const hash = createHash("sha256").update(payload).digest("hex").slice(0, 16);
+        if (`PF-PASS-${hash.toUpperCase()}` === queryId) {
+          learner = candidate;
+          break;
+        }
+      }
+    }
     if (!learner) return apiError("Learner not found", 404);
+    const learnerId = learner.id;
 
     const [activePath, assessments, activities, evidence, gaps, weeklyReport] = await Promise.all([
       db.learningPath.findFirst({ where: { learnerId, isActive: true }, include: { milestones: true } }),

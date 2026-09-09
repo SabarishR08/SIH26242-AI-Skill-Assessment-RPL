@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { apiError, json, readJson } from "@/lib/api-helpers";
 import { ensureProjectSpec } from "@/lib/projects/spec";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -12,6 +13,9 @@ interface Body {
 
 /** Ensure (lazily generate) the project spec for a milestone. */
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 30, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const body = await readJson<Body>(request);
     if (!body.learnerId || !body.milestoneId) return apiError("learnerId and milestoneId are required", 400);

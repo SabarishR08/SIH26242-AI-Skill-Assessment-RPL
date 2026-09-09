@@ -53,6 +53,13 @@ export const api = {
       }>,
     ),
 
+  updateOnboardingStage: (learnerId: string, stage: string) =>
+    fetch("/api/onboarding/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ learnerId, stage }),
+    }).then(handle<{ learnerId: string; onboardingStage: string }>),
+
   // ── Evidence ─────────────────────────────────────────────────────────────
   connectGithub: (learnerId: string, username: string) =>
     fetch("/api/evidence/github", {

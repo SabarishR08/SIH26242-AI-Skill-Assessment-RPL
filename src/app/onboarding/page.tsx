@@ -68,6 +68,14 @@ export default function OnboardingPage() {
   const { toast } = useToast();
   const { learnerId, setLearnerId, hydrated } = useLearner();
   const [stage, setStage] = useState<StageId>("intro");
+
+  const goToStage = useCallback((newStage: StageId) => {
+    setStage(newStage);
+    if (learnerId) {
+      void api.updateOnboardingStage(learnerId, newStage).catch(() => {});
+    }
+  }, [learnerId]);
+
   const [name, setName] = useState("");
   const [starting, setStarting] = useState(false);
 
@@ -120,8 +128,14 @@ export default function OnboardingPage() {
       if (state.learner.hoursPerWeek) setHoursPerWeek(state.learner.hoursPerWeek);
       if (state.learner.goalSkillId) setGoalSkillId(state.learner.goalSkillId);
       const s = state.learner.onboardingStage;
-      const target = s === "complete" ? "scenarios" : s === "evidence" ? "evidence" : "interview";
-      setStage(target as StageId);
+      const validStages: StageId[] = ["intro", "interview", "evidence", "claims", "calibration", "scenarios"];
+      if (validStages.includes(s as StageId)) {
+        setStage(s as StageId);
+      } else if (s === "complete") {
+        setStage("scenarios");
+      } else {
+        setStage("interview");
+      }
     }).catch(() => {
       /* fresh start */
     });
@@ -137,7 +151,7 @@ export default function OnboardingPage() {
       const res = await api.startOnboarding(name.trim());
       setLearnerId(res.learnerId);
       setChat([{ role: "assistant", content: res.greeting }]);
-      setStage("interview");
+      goToStage("interview");
     } catch (e) {
       toast({ title: "Could not start", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
     } finally {
@@ -167,7 +181,7 @@ export default function OnboardingPage() {
         setWaitingForConfirmation(true);
       }
       if (final.phase === "done" || final.phase === "wrap_up") {
-        setTimeout(() => setStage("evidence"), 1200);
+        setTimeout(() => goToStage("evidence"), 1200);
       }
     } catch (e) {
       setStreamText("");
@@ -175,12 +189,12 @@ export default function OnboardingPage() {
     } finally {
       setStreaming(false);
     }
-  }, [input, learnerId, streaming, toast]);
+  }, [input, learnerId, streaming, toast, goToStage]);
 
   const handleConfirmation = (isEnough: boolean) => {
     setWaitingForConfirmation(false);
     if (isEnough) {
-      setStage("evidence");
+      goToStage("evidence");
     }
   };
 
@@ -262,7 +276,7 @@ export default function OnboardingPage() {
       const res = await api.createCalibrationQuiz(learnerId, skillId);
       if (!res.quiz) {
         toast({ title: "Nothing to calibrate", description: res.message ?? "No gaps detected." });
-        setStage("scenarios");
+        goToStage("scenarios");
         return;
       }
       setActiveQuiz({
@@ -370,7 +384,7 @@ export default function OnboardingPage() {
             <button
               key={s.id}
               onClick={() => {
-                if (i <= stageIndex && learnerId) setStage(s.id);
+                if (i <= stageIndex && learnerId) goToStage(s.id);
               }}
               className={cn(
                 "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-colors",
@@ -506,7 +520,7 @@ export default function OnboardingPage() {
             <p className="text-xs text-muted-foreground">
               Nexus asks one question at a time and adapts to your answers. Type &quot;skip&quot; to move faster.
             </p>
-            <Button variant="outline" size="sm" onClick={() => setStage("evidence")}>
+            <Button variant="outline" size="sm" onClick={() => goToStage("evidence")}>
               Skip to evidence <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </div>
@@ -593,7 +607,7 @@ export default function OnboardingPage() {
 
           <div className="md:col-span-2 flex items-center justify-between pt-2">
             <p className="text-xs text-muted-foreground">Connect what you have — every source sharpens the plan.</p>
-            <Button onClick={() => setStage("claims")}>
+            <Button onClick={() => goToStage("claims")}>
               See my profile <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </div>
@@ -603,7 +617,7 @@ export default function OnboardingPage() {
 
       {/* ── Stage: claims ────────────────────────────────────────────────── */}
       {stage === "claims" && (
-      <ErrorBoundary stage="Profile" onBack={() => setStage("evidence")} onRetry={() => { loadRadar(); setStage("claims"); }}>
+      <ErrorBoundary stage="Profile" onBack={() => goToStage("evidence")} onRetry={() => { loadRadar(); goToStage("claims"); }}>
         <div className="max-w-4xl mx-auto grid gap-4 md:grid-cols-2">
           <Card className="glass-card">
             <CardHeader className="pb-2">
@@ -635,7 +649,7 @@ export default function OnboardingPage() {
             </CardContent>
           </Card>
           <div className="md:col-span-2 flex justify-between items-center">
-            <Button variant="ghost" size="sm" onClick={() => setStage("evidence")}>← Add more evidence</Button>
+            <Button variant="ghost" size="sm" onClick={() => goToStage("evidence")}>← Add more evidence</Button>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -645,7 +659,7 @@ export default function OnboardingPage() {
               >
                 <Award className="mr-1.5 h-3.5 w-3.5" /> View Skill Passport
               </Button>
-              <Button onClick={() => setStage("calibration")}>
+              <Button onClick={() => goToStage("calibration")}>
                 {gaps.length > 0 ? "Audit my claims" : "Skip to roadmap"} <ArrowRight className="ml-1 h-3.5 w-3.5" />
               </Button>
             </div>
@@ -712,8 +726,8 @@ export default function OnboardingPage() {
             </Card>
           )}
           <div className="flex justify-between items-center">
-            <Button variant="ghost" size="sm" onClick={() => setStage("claims")}>← Back</Button>
-            <Button onClick={() => setStage("scenarios")}>
+            <Button variant="ghost" size="sm" onClick={() => goToStage("claims")}>← Back</Button>
+            <Button onClick={() => goToStage("scenarios")}>
               Choose my roadmap <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </div>
@@ -723,7 +737,7 @@ export default function OnboardingPage() {
 
       {/* ── Stage: scenarios ─────────────────────────────────────────────── */}
       {stage === "scenarios" && (
-      <ErrorBoundary stage="Roadmap" onBack={() => setStage("calibration")} onRetry={() => { loadScenarios(); setStage("scenarios"); }}>
+      <ErrorBoundary stage="Roadmap" onBack={() => goToStage("calibration")} onRetry={() => { loadScenarios(); goToStage("scenarios"); }}>
         <div className="max-w-5xl mx-auto">
           {!goalSkillId ? (
             <Card className="glass-card max-w-xl mx-auto glow-primary">

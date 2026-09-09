@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { apiError, json, sseStream, readJson } from "@/lib/api-helpers";
 import { streamMentorReply } from "@/lib/mentor";
 
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
@@ -32,6 +34,9 @@ export async function GET(request: Request) {
 
 /** POST: streaming mentor reply grounded in the learner's real context. */
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 40, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const body = await readJson<Body>(request);
     if (!body.learnerId || !body.message?.trim()) return apiError("learnerId and message are required");

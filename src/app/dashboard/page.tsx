@@ -75,17 +75,31 @@ export default function DashboardPage() {
   const [explainText, setExplainText] = useState<string>("");
   const [explainLoading, setExplainLoading] = useState(false);
   const [passportOpen, setPassportOpen] = useState(false);
+  const [sharedPassportId, setSharedPassportId] = useState<string | null>(null);
   const [pathEdges, setPathEdges] = useState<Array<[string, string]>>([]);
   const [pathSkills, setPathSkills] = useState<Array<{ id: string; name: string; domain: string; depth: number; hours: number }>>([]);
   const [masteredSkills, setMasteredSkills] = useState<string[]>([]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get("passport") || params.get("learner");
+      if (p) {
+        setSharedPassportId(p);
+        setPassportOpen(true);
+      }
+    }
+  }, []);
+
+  const activeLearnerId = sharedPassportId || learnerId;
+
   const load = useCallback(async () => {
-    if (!learnerId) return;
+    if (!activeLearnerId) return;
     setLoading(true);
     try {
       const [dash, pathRes] = await Promise.all([
-        api.getDashboard(learnerId),
-        api.getCurrentPath(learnerId).catch(() => ({ path: null })),
+        api.getDashboard(activeLearnerId),
+        api.getCurrentPath(activeLearnerId).catch(() => ({ path: null })),
       ]);
       setData(dash);
       if (pathRes.path) {
@@ -102,24 +116,32 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [learnerId, toast]);
+  }, [activeLearnerId, toast]);
 
   useEffect(() => {
     if (!hydrated) return;
+    if (sharedPassportId) {
+      void load();
+      return;
+    }
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("passport") || params.get("learner")) return;
+    }
     if (!learnerId) {
       router.push("/onboarding");
       return;
     }
     void load();
-  }, [hydrated, learnerId, router, load]);
+  }, [hydrated, learnerId, sharedPassportId, router, load]);
 
   const explainSkill = async (skillId: string) => {
-    if (!learnerId) return;
+    if (!activeLearnerId) return;
     setExplainOpen(true);
     setExplainLoading(true);
     setExplainText("");
     try {
-      const res = await api.explain(learnerId, "skill", skillId);
+      const res = await api.explain(activeLearnerId, "skill", skillId);
       setExplainText(res.explanation.prose);
     } catch {
       setExplainText("Explanation unavailable right now.");
@@ -172,11 +194,37 @@ export default function DashboardPage() {
 
   return (
     <AppShell learnerName={learner.name} onReset={() => { setLearnerId(null); router.push("/onboarding"); }}>
+      {sharedPassportId && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-sm shadow-sm backdrop-blur-md">
+          <div className="flex items-center gap-2.5">
+            <Award className="h-5 w-5 text-primary shrink-0" />
+            <div>
+              <p className="font-medium text-foreground">
+                Viewing Verifiable Skill Passport for <span className="text-primary font-semibold">{learner.name}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Cryptographically authenticated record backed by code challenges and project evaluations
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setPassportOpen(true)} className="h-8 text-xs border-primary/30">
+              <Award className="mr-1.5 h-3.5 w-3.5 text-primary" /> View Credential
+            </Button>
+            <Button size="sm" asChild className="h-8 text-xs">
+              <Link href="/onboarding">
+                Create Your Roadmap <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Top Welcome & Actions Banner */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            Welcome back, {learner.name}
+            {sharedPassportId ? `${learner.name}'s Competency Profile` : `Welcome back, ${learner.name}`}
             {learner.targetRole && (
               <Badge variant="secondary" className="text-xs font-normal">
                 {learner.targetRole}
@@ -449,7 +497,7 @@ export default function DashboardPage() {
       <SkillPassportModal
         open={passportOpen}
         onOpenChange={setPassportOpen}
-        learnerId={learnerId ?? ""}
+        learnerId={activeLearnerId ?? ""}
       />
     </AppShell>
   );

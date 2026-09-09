@@ -53,6 +53,12 @@ export function AppShell({
           {learnerName ? (
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground hidden sm:inline">{learnerName}</span>
+              <span
+                className="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground/80 bg-white/5 border border-white/10 rounded px-1.5 py-0.5"
+                title="Session progress is stored locally in your browser (no password required)"
+              >
+                Local Profile
+              </span>
               {onReset ? (
                 <Button variant="ghost" size="sm" onClick={onReset} className="text-xs h-7">
                   Start over

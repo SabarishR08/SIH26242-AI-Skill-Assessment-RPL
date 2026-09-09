@@ -27,11 +27,22 @@ export async function POST(request: Request) {
       const hits = await skillSearch(body.goalText);
       goalSkillId = hits[0]?.id;
     }
-    if (!goalSkillId) return apiError("Provide goalSkillId or goalText");
+    if (!goalSkillId) return apiError("Provide goalSkillId or goalText", 400);
 
-    await db.learner.update({ where: { id: body.learnerId }, data: { goalSkillId } });
+    const { loadSkillGraph } = await import("@/lib/engine");
+    const graph = await loadSkillGraph();
+    const targetSkill = graph.skills[goalSkillId];
+
+    const updateData: Record<string, unknown> = { goalSkillId };
+    if (targetSkill) {
+      updateData.domain = targetSkill.domain;
+      updateData.targetRole = `${targetSkill.name} Specialist`;
+      updateData.goalStatement = `Master ${targetSkill.name} in ${targetSkill.domain}`;
+    }
+
+    await db.learner.update({ where: { id: body.learnerId }, data: updateData as never });
     await db.activityLog.create({
-      data: { learnerId: body.learnerId, kind: "goal_changed", detailJson: JSON.stringify({ goalSkillId }) },
+      data: { learnerId: body.learnerId, kind: "goal_changed", detailJson: JSON.stringify({ goalSkillId, skillName: targetSkill?.name }) },
     });
 
     const outcome = await replanPath(body.learnerId, "goal_changed" satisfies ReplanReason, { newGoalSkillId: goalSkillId });
