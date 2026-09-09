@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { fetchLeetCodeStats, leetCodeClaims } from "@/lib/evidence/competitive";
 import { fuseEvidence, logEvidence } from "@/lib/evidence/fuse";
 
@@ -14,7 +14,12 @@ interface Body {
 export async function POST(request: Request) {
   try {
     const body = await readJson<Body>(request);
-    const username = (body.username || "").trim().replace(/^@/, "").replace(/^https?:\/\/leetcode\.com\/u?\//, "").replace(/\/.*$/, "");
+    const username = (body.username || "")
+      .trim()
+      .replace(/^@/, "")
+      .replace(/^(https?:\/\/)?(www\.)?leetcode\.com\/(u\/)?/i, "")
+      .replace(/\/.*$/, "")
+      .trim();
     if (!body.learnerId || !username) return apiError("learnerId and username are required");
 
     const learner = await db.learner.findUnique({ where: { id: body.learnerId } });
@@ -35,6 +40,6 @@ export async function POST(request: Request) {
 
     return json({ stats, claims, assessmentUpdates: updates });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "LeetCode ingestion failed", 500);
+    return handleApiError(e, "LeetCode ingestion failed");
   }
 }

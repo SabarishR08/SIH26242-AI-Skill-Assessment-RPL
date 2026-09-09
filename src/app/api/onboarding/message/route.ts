@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { apiError, sseStream, readJson } from "@/lib/api-helpers";
 import { runAgentStream, persistAgentTurn, type AgentPhase, type ExtractedProfile, PHASE_ORDER } from "@/lib/onboarding/agent";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -11,6 +12,9 @@ interface MessageBody {
 }
 
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 40, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const body = await readJson<MessageBody>(request);
     if (!body.learnerId || !body.message?.trim()) {
@@ -21,7 +25,7 @@ export async function POST(request: Request) {
     const learner = await db.learner.findUnique({ where: { id: body.learnerId } });
     if (!learner) return apiError("Learner not found", 404);
 
-    const wantsSkip = /skip|next question|move on|let'?s move/i.test(body.message.trim());
+    const wantsSkip = /^\s*(\/skip|skip|next|move on|let'?s move|let'?s move on|skip question)\s*$/i.test(body.message.trim());
     if (wantsSkip) {
       const currentState = await db.agentState.findUnique({ where: { learnerId: body.learnerId } });
       if (currentState && currentState.phase !== "done") {
@@ -35,13 +39,24 @@ export async function POST(request: Request) {
     }
 
     const generator = (async function* () {
-      const { fullReply: apiReply } = await runAgentStream(body.learnerId, body.message.trim());
+      let apiReply = "";
+      try {
+        const streamResult = await runAgentStream(body.learnerId, body.message.trim());
+        apiReply = streamResult.fullReply;
+      } catch (err: any) {
+        const msg = err?.message ?? "";
+        if (msg.includes("429") || msg.toLowerCase().includes("rate limit")) {
+          apiReply = "I'm processing several learners right now, but I've got your input recorded! Could you tell me about the specific projects or technologies you've worked with recently?";
+        } else {
+          throw err;
+        }
+      }
       
       let replyBuffer = apiReply || "";
       let phaseComplete = false;
       let extracted: ExtractedProfile = {};
       
-      const wantsSkip = /skip|next question|move on|let'?s move/i.test(body.message.trim());
+      const wantsSkip = /^\s*(\/skip|skip|next|move on|let'?s move|let'?s move on|skip question)\s*$/i.test(body.message.trim());
       if (wantsSkip || replyBuffer.includes("[PHASE_COMPLETE]")) {
         phaseComplete = true;
       }
@@ -67,7 +82,7 @@ export async function POST(request: Request) {
         body.message.trim(),
         cleanReply,
         extracted,
-        phaseComplete
+        { wantsSkip, phaseComplete }
       );
 
       yield {

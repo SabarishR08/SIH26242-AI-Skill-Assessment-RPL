@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { useLearner } from "@/hooks/use-learner";
 import { api, type DashboardData } from "@/lib/client-api";
+import { markdownToHtml } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -75,17 +76,31 @@ export default function DashboardPage() {
   const [explainText, setExplainText] = useState<string>("");
   const [explainLoading, setExplainLoading] = useState(false);
   const [passportOpen, setPassportOpen] = useState(false);
+  const [sharedPassportId, setSharedPassportId] = useState<string | null>(null);
   const [pathEdges, setPathEdges] = useState<Array<[string, string]>>([]);
   const [pathSkills, setPathSkills] = useState<Array<{ id: string; name: string; domain: string; depth: number; hours: number }>>([]);
   const [masteredSkills, setMasteredSkills] = useState<string[]>([]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get("passport") || params.get("learner");
+      if (p) {
+        setSharedPassportId(p);
+        setPassportOpen(true);
+      }
+    }
+  }, []);
+
+  const activeLearnerId = sharedPassportId || learnerId;
+
   const load = useCallback(async () => {
-    if (!learnerId) return;
+    if (!activeLearnerId) return;
     setLoading(true);
     try {
       const [dash, pathRes] = await Promise.all([
-        api.getDashboard(learnerId),
-        api.getCurrentPath(learnerId).catch(() => ({ path: null })),
+        api.getDashboard(activeLearnerId),
+        api.getCurrentPath(activeLearnerId).catch(() => ({ path: null })),
       ]);
       setData(dash);
       if (pathRes.path) {
@@ -102,24 +117,32 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [learnerId, toast]);
+  }, [activeLearnerId, toast]);
 
   useEffect(() => {
     if (!hydrated) return;
+    if (sharedPassportId) {
+      void load();
+      return;
+    }
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("passport") || params.get("learner")) return;
+    }
     if (!learnerId) {
       router.push("/onboarding");
       return;
     }
     void load();
-  }, [hydrated, learnerId, router, load]);
+  }, [hydrated, learnerId, sharedPassportId, router, load]);
 
   const explainSkill = async (skillId: string) => {
-    if (!learnerId) return;
+    if (!activeLearnerId) return;
     setExplainOpen(true);
     setExplainLoading(true);
     setExplainText("");
     try {
-      const res = await api.explain(learnerId, "skill", skillId);
+      const res = await api.explain(activeLearnerId, "skill", skillId);
       setExplainText(res.explanation.prose);
     } catch {
       setExplainText("Explanation unavailable right now.");
@@ -172,11 +195,37 @@ export default function DashboardPage() {
 
   return (
     <AppShell learnerName={learner.name} onReset={() => { setLearnerId(null); router.push("/onboarding"); }}>
+      {sharedPassportId && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-sm shadow-sm backdrop-blur-md">
+          <div className="flex items-center gap-2.5">
+            <Award className="h-5 w-5 text-primary shrink-0" />
+            <div>
+              <p className="font-medium text-foreground">
+                Viewing Verifiable Skill Passport for <span className="text-primary font-semibold">{learner.name}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Cryptographically authenticated record backed by code challenges and project evaluations
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setPassportOpen(true)} className="h-8 text-xs border-primary/30">
+              <Award className="mr-1.5 h-3.5 w-3.5 text-primary" /> View Credential
+            </Button>
+            <Button size="sm" asChild className="h-8 text-xs">
+              <Link href="/onboarding">
+                Create Your Roadmap <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Top Welcome & Actions Banner */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            Welcome back, {learner.name}
+            {sharedPassportId ? `${learner.name}'s Competency Profile` : `Welcome back, ${learner.name}`}
             {learner.targetRole && (
               <Badge variant="secondary" className="text-xs font-normal">
                 {learner.targetRole}
@@ -206,7 +255,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Header stats */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6 min-w-0 max-w-full">
         <Card className="glass-card">
           <CardContent className="pt-5 pb-4">
             <div className="flex items-center justify-between">
@@ -266,7 +315,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3 mb-6">
+      <div className="grid gap-4 lg:grid-cols-3 mb-6 min-w-0 max-w-full">
         {/* Next best actions */}
         <Card className="glass-card">
           <CardHeader className="pb-2">
@@ -342,7 +391,7 @@ export default function DashboardPage() {
                 <div key={s.name} className="flex items-center justify-between gap-2 text-xs">
                   <span className="truncate">{s.name}</span>
                   <span className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-muted-foreground">{s.claimed}/{s.evidenced}</span>
+                    <span className="text-muted-foreground">Lvl {s.tier === "claimed" ? s.claimed : s.evidenced}/5</span>
                     <TierBadge tier={s.tier} />
                   </span>
                 </div>
@@ -381,7 +430,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Weekly coach + activity */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 min-w-0 max-w-full">
         <Card className="glass-card">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -449,7 +498,7 @@ export default function DashboardPage() {
       <SkillPassportModal
         open={passportOpen}
         onOpenChange={setPassportOpen}
-        learnerId={learnerId ?? ""}
+        learnerId={activeLearnerId ?? ""}
       />
     </AppShell>
   );
@@ -465,25 +514,4 @@ function TierBadge({ tier }: { tier: string }) {
   };
   const s = map[tier] ?? map.none;
   return <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0", s.className)}>{s.label}</Badge>;
-}
-
-/** Minimal, safe markdown → HTML (bold, headers, lists, paragraphs only). */
-function markdownToHtml(md: string): string {
-  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return md
-    .split(/\n\n+/)
-    .map((block) => {
-      const lines = block.split("\n");
-      if (lines.every((l) => l.trim().startsWith("-"))) {
-        return `<ul>${lines.map((l) => `<li>${inline(escape(l.replace(/^\s*-\s*/, "")))}</li>`).join("")}</ul>`;
-      }
-      if (block.startsWith("## ")) return `<h2>${inline(escape(block.slice(3)))}</h2>`;
-      if (block.startsWith("# ")) return `<h2>${inline(escape(block.slice(2)))}</h2>`;
-      return `<p>${inline(escape(block))}</p>`;
-    })
-    .join("");
-}
-
-function inline(s: string): string {
-  return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>");
 }

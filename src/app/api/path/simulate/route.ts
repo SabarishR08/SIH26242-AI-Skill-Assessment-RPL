@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { buildGeneratedPath, computeDepths, phasePartitions } from "@/lib/engine";
 import { scheduleMilestones, milestoneHours } from "@/lib/engine/time";
 import { knownSkillIdsFor, type Scenario, SCENARIO_META } from "@/lib/path/generate";
@@ -192,6 +192,6 @@ export async function POST(request: Request) {
         : null,
     });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to simulate path", 500);
+    return handleApiError(e, "Failed to simulate path");
   }
 }

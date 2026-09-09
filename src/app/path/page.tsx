@@ -197,7 +197,7 @@ export default function PathPage() {
                 )}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                {path.progress.completed}/{path.progress.total} phases complete · {path.progress.hoursRemaining}h remaining · {path.totalSkills} skills
+                {path.progress.completed}/{path.progress.total} phases complete · {path.progress.hoursRemaining}h remaining · {path.totalSkills} {path.totalSkills === 1 ? "skill" : "skills"}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -217,6 +217,23 @@ export default function PathPage() {
           <Progress value={path.progress.percent} className="h-1.5 mt-4" />
         </CardContent>
       </Card>
+
+      {/* Shallow goal notice */}
+      {path.milestones.length <= 1 && (
+        <Card className="glass-card mb-4 border-amber-500/30 bg-amber-500/5">
+          <CardContent className="py-3 px-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-amber-200">
+              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Foundational Goal:</strong> Your chosen goal is a fundamental building block with no prior prerequisites in the graph. For a richer multi-phase curriculum, consider switching to an advanced specialization or selecting the <strong>Exploratory</strong> scenario.
+              </span>
+            </div>
+            <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10 shrink-0" onClick={() => setGoalOpen(true)}>
+              Expand Goal
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Time simulator */}
       <Card className="glass-card mb-6">
@@ -239,7 +256,7 @@ export default function PathPage() {
                 <>
                   At this pace: <span className="text-primary font-medium">~{simulated.totalWeeks} weeks</span> to finish
                   {simulated.eta && <> · ETA {simulated.eta}</>}
-                  <button className="ml-2 underline hover:text-foreground" onClick={() => setSimHours(path.hoursPerWeek)}>reset</button>
+                  <button className="ml-3 inline-flex items-center underline hover:text-foreground cursor-pointer" onClick={() => setSimHours(path.hoursPerWeek)}>reset</button>
                 </>
               ) : (
                 <>Drag to simulate a different weekly commitment — ETAs recompute instantly (engine math, not guesses).</>
@@ -287,7 +304,7 @@ export default function PathPage() {
                         <Calendar className="h-3 w-3" />
                         {sim ? `${sim.start} → ${sim.end}` : m.targetEndAt ? `target ${m.targetEndAt.slice(0, 10)}` : "unscheduled"}
                       </span>
-                      <span>{m.skillNames.length} skills</span>
+                      <span>{m.skillNames.length} {m.skillNames.length === 1 ? "skill" : "skills"}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

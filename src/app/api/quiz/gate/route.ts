@@ -14,7 +14,15 @@ interface Body {
 export async function POST(request: Request) {
   try {
     const body = await readJson<Body>(request);
-    if (!body.learnerId || !body.milestoneId) return apiError("learnerId and milestoneId are required");
+    if (!body.learnerId || !body.milestoneId) return apiError("learnerId and milestoneId are required", 400);
+
+    const milestone = await db.milestone.findUnique({
+      where: { id: body.milestoneId },
+      include: { path: true },
+    });
+    if (milestone?.path && milestone.path.learnerId !== body.learnerId) {
+      return apiError("Milestone does not belong to this learner", 403);
+    }
 
     const existing = await db.quiz.findFirst({
       where: { learnerId: body.learnerId, milestoneId: body.milestoneId, kind: "milestone_gate", status: "pending" },

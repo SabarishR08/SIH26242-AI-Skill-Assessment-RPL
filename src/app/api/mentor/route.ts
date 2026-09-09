@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { apiError, json, sseStream, readJson } from "@/lib/api-helpers";
 import { streamMentorReply } from "@/lib/mentor";
 
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
@@ -17,6 +19,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const learnerId = url.searchParams.get("learnerId");
     if (!learnerId) return apiError("learnerId is required");
+    const learner = await db.learner.findUnique({ where: { id: learnerId } });
+    if (!learner) return apiError("Learner not found", 404);
     const messages = await db.mentorMessage.findMany({
       where: { learnerId },
       orderBy: { createdAt: "asc" },
@@ -32,9 +36,14 @@ export async function GET(request: Request) {
 
 /** POST: streaming mentor reply grounded in the learner's real context. */
 export async function POST(request: Request) {
+  const rl = checkRateLimit(request, { limit: 40, windowMs: 60_000 });
+  if (!rl.success) return rateLimitResponse(rl);
+
   try {
     const body = await readJson<Body>(request);
     if (!body.learnerId || !body.message?.trim()) return apiError("learnerId and message are required");
+    const learner = await db.learner.findUnique({ where: { id: body.learnerId } });
+    if (!learner) return apiError("Learner not found", 404);
 
     const generator = (async function* () {
       for await (const chunk of streamMentorReply(body.learnerId, body.message.trim(), body.socratic === true)) {

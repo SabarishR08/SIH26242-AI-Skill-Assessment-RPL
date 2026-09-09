@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json } from "@/lib/api-helpers";
+import { apiError, handleApiError, json } from "@/lib/api-helpers";
 import { loadSkillGraph, loadCatalogue } from "@/lib/engine/data";
 import { recommendCourses, resourcesForSkills } from "@/lib/engine/courses";
 import { buildGeneratedPath } from "@/lib/engine";
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
       targetSkillId: path.snapshotJson ? JSON.parse(path.snapshotJson).goalSkillId : learner.goalSkillId!,
       knownSkillIds: masteredSkills,
       algorithm: path.algorithm as "dfs-topological" | "kahn-spt",
-      coursesPerSkill: 0,
+      coursesPerSkill: 2,
     });
 
     const progress = {
@@ -161,6 +161,6 @@ export async function GET(request: Request) {
       },
     });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to load path", 500);
+    return handleApiError(e, "Failed to load path");
   }
 }

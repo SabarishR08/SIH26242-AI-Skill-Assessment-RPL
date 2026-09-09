@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { fetchGithubProfile, analyzeGithub } from "@/lib/evidence/github";
 import { fuseEvidence, logEvidence } from "@/lib/evidence/fuse";
 import { loadSkillGraph } from "@/lib/engine/data";
@@ -16,7 +16,12 @@ interface Body {
 export async function POST(request: Request) {
   try {
     const body = await readJson<Body>(request);
-    const username = (body.username || "").trim().replace(/^@/, "").replace(/^https?:\/\/github\.com\//, "").replace(/\/.*$/, "");
+    const username = (body.username || "")
+      .trim()
+      .replace(/^@/, "")
+      .replace(/^(https?:\/\/)?(www\.)?github\.com\//i, "")
+      .replace(/\/.*$/, "")
+      .trim();
     if (!body.learnerId || !username) return apiError("learnerId and username are required");
 
     const learner = await db.learner.findUnique({ where: { id: body.learnerId } });
@@ -63,6 +68,6 @@ export async function POST(request: Request) {
       assessmentUpdates: updates,
     });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "GitHub ingestion failed", 500);
+    return handleApiError(e, "GitHub ingestion failed");
   }
 }

@@ -137,11 +137,14 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
     const hours = skillMeta.reduce((sum, s) => sum + (s?.estimatedHours ?? 8), 0);
     const meanLevel =
       skillIds.reduce((sum, id) => sum + (evidencedLevels[id] ?? 0), 0) / Math.max(1, skillIds.length);
-    const hasProject = opts.adjacent
-      ? false
-      : scenario === "intensive"
-        ? phaseIndex === Math.ceil(phases.length / 2) || phaseIndex === phases.length
-        : phaseIndex % 2 === 0 || phaseIndex === phases.length;
+    const isFinalPhase = opts.adjacent || (adjacentSkills.length === 0 && phaseIndex === phases.length);
+    const hasProject = scenario === "exploratory" && isFinalPhase
+      ? true // PF-26: exploratory ending in a portfolio-grade capstone project
+      : opts.adjacent
+        ? false
+        : scenario === "intensive"
+          ? phaseIndex === Math.ceil(phases.length / 2) || phaseIndex === phases.length
+          : phaseIndex % 2 === 0 || phaseIndex === phases.length;
     const totalHours = milestoneHours({ skillHours: hours, hasProject, hasQuiz: true });
     return {
       order: 0, // assigned below
@@ -159,10 +162,17 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
     };
   };
 
+  let lastThemeIdx = 0;
   for (const phaseSkills of phases) {
     if (!phaseSkills.length) continue;
     const primaryDepth = Math.max(...phaseSkills.map((id) => depths[id] ?? 0));
-    drafts.push(buildDraft(phaseSkills, { theme: themeForDepth(primaryDepth) }));
+    let themeIdx = DEPTH_THEMES.findIndex((t) => primaryDepth <= t.maxDepth);
+    if (themeIdx === -1) themeIdx = DEPTH_THEMES.length - 1;
+    // PF-19: Enforce monotonic progression: phase themes must never step backward
+    themeIdx = Math.max(themeIdx, lastThemeIdx);
+    lastThemeIdx = themeIdx;
+    const theme = DEPTH_THEMES[themeIdx].theme;
+    drafts.push(buildDraft(phaseSkills, { theme }));
     phaseIndex += 1;
   }
 
@@ -182,68 +192,80 @@ export async function generatePath(input: PathGenerationInput): Promise<Generati
   );
 
   const learner = await db.learner.findUnique({ where: { id: learnerId } });
-  const activeVersion = await db.learningPath.count({ where: { learnerId } });
   const assessments = await db.skillAssessment.findMany({ where: { learnerId } });
 
-  const path = await db.learningPath.create({
-    data: {
-      learnerId,
-      version: activeVersion + 1,
-      scenario,
-      algorithm,
-      isActive: true,
-      totalSkills: generated.skills.length,
-      totalHours: drafts.reduce((s, d) => s + d.estimatedHours, 0),
-      hoursPerWeek,
-      snapshotJson: JSON.stringify({
-        goalSkillId,
-        knownSkillIds,
-        evidencedLevels,
-        assessments: assessments.map((a) => ({
-          skillId: a.skillId,
-          claimed: a.claimedLevel,
-          evidenced: a.evidencedLevel,
-          tier: a.tier,
-        })),
-        generatedAt: new Date().toISOString(),
-      }),
-    },
-  });
+  const executeWrite = async (tx: any) => {
+    const existingCount = await tx.learningPath.count({ where: { learnerId } });
 
-  await db.learningPath.updateMany({ where: { learnerId, id: { not: path.id } }, data: { isActive: false } });
-
-  await db.milestone.createMany({
-    data: drafts.map((d, i) => ({
-      pathId: path.id,
-      order: d.order,
-      phase: d.phase,
-      title: d.title,
-      description: d.description,
-      skillIdsJson: JSON.stringify(d.skillIds),
-      skillNamesJson: JSON.stringify(d.skillNames),
-      estimatedHours: d.estimatedHours,
-      status: d.order === firstMilestoneAvailable ? "available" : "locked",
-      hasProject: d.hasProject,
-      hasGateQuiz: d.hasGateQuiz,
-      targetStartAt: scheduled[i].startAt,
-      targetEndAt: scheduled[i].endAt,
-    })),
-  });
-
-  await db.activityLog.create({
-    data: {
-      learnerId,
-      kind: "path_generated",
-      detailJson: JSON.stringify({
-        pathId: path.id,
+    const newPath = await tx.learningPath.create({
+      data: {
+        learnerId,
+        version: existingCount + 1,
         scenario,
-        version: path.version,
-        milestones: drafts.length,
-        totalHours: path.totalHours,
-        goalSkillId,
-      }),
-    },
-  });
+        algorithm,
+        isActive: true,
+        totalSkills: generated.skills.length,
+        totalHours: drafts.reduce((s, d) => s + d.estimatedHours, 0),
+        hoursPerWeek,
+        snapshotJson: JSON.stringify({
+          goalSkillId,
+          knownSkillIds,
+          evidencedLevels,
+          assessments: assessments.map((a: any) => ({
+            skillId: a.skillId,
+            claimed: a.claimedLevel,
+            evidenced: a.evidencedLevel,
+            tier: a.tier,
+          })),
+          generatedAt: new Date().toISOString(),
+        }),
+      },
+    });
+
+    await tx.learningPath.updateMany({
+      where: { learnerId, id: { not: newPath.id } },
+      data: { isActive: false },
+    });
+
+    await tx.milestone.createMany({
+      data: drafts.map((d, i) => ({
+        pathId: newPath.id,
+        order: d.order,
+        phase: d.phase,
+        title: d.title,
+        description: d.description,
+        skillIdsJson: JSON.stringify(d.skillIds),
+        skillNamesJson: JSON.stringify(d.skillNames),
+        estimatedHours: d.estimatedHours,
+        status: d.order === firstMilestoneAvailable ? "available" : "locked",
+        hasProject: d.hasProject,
+        hasGateQuiz: d.hasGateQuiz,
+        targetStartAt: scheduled[i].startAt,
+        targetEndAt: scheduled[i].endAt,
+      })),
+    });
+
+    await tx.activityLog.create({
+      data: {
+        learnerId,
+        kind: "path_generated",
+        detailJson: JSON.stringify({
+          pathId: newPath.id,
+          scenario,
+          version: newPath.version,
+          milestones: drafts.length,
+          totalHours: newPath.totalHours,
+          goalSkillId,
+        }),
+      },
+    });
+
+    return newPath;
+  };
+
+  const path = typeof db.$transaction === "function"
+    ? await db.$transaction(executeWrite)
+    : await executeWrite(db);
 
   const lastEnd = scheduled.length ? scheduled[scheduled.length - 1].endAt : new Date();
 
@@ -282,14 +304,52 @@ export async function previewScenarios(input: Omit<PathGenerationInput, "scenari
     });
     const depths = computeDepths(generated.graph);
     const phases = phasePartitions(generated.skills.map((s) => s.skillId), depths);
-    const totalHours = generated.totalEstimatedHours + phases.length; // + quiz hours
+
+    let adjacentCount = 0;
+    let adjacentHours = 0;
+    if (scenario === "exploratory") {
+      const knownSet = new Set(input.knownSkillIds ?? []);
+      const pathSet = new Set(generated.skills.map((s) => s.skillId));
+      const eligible = (id: string) => !knownSet.has(id) && !pathSet.has(id);
+      let adjacent = (generated.graph.skills[input.goalSkillId]?.prereqs ?? []).flatMap(
+        (p) => generated.graph.skills[p]?.prereqs ?? []
+      ).filter(eligible).slice(0, 3);
+      if (!adjacent.length) {
+        adjacent = Object.values(generated.graph.skills)
+          .filter((s) => s.domain === generated.domain && eligible(s.id))
+          .sort((a, b) => (depths[b.id] ?? 0) - (depths[a.id] ?? 0))
+          .slice(0, 3)
+          .map((s) => s.id);
+      }
+      if (adjacent.length) {
+        adjacentCount = 1;
+        adjacentHours = milestoneHours({ skillHours: adjacent.length * 8, hasProject: true, hasQuiz: true });
+      }
+    }
+
+    let totalHours = 0;
+    phases.forEach((phaseSkills, idx) => {
+      const pIndex = idx + 1;
+      const skillMeta = phaseSkills.map((id) => generated.skills.find((s) => s.skillId === id)).filter(Boolean);
+      const hours = skillMeta.reduce((sum, s) => sum + (s?.estimatedHours ?? 8), 0);
+      const isFinalPhase = adjacentCount === 0 && pIndex === phases.length;
+      const hasProject = scenario === "exploratory" && isFinalPhase
+        ? true
+        : scenario === "intensive"
+          ? pIndex === Math.ceil(phases.length / 2) || pIndex === phases.length
+          : pIndex % 2 === 0 || pIndex === phases.length;
+      totalHours += milestoneHours({ skillHours: hours, hasProject, hasQuiz: true });
+    });
+    totalHours += adjacentHours;
+
+    const totalMilestones = phases.length + adjacentCount;
     outcomes.push({
       scenario,
-      totalSkills: generated.skills.length,
+      totalSkills: generated.skills.length + (adjacentCount > 0 ? 3 : 0),
       totalHours,
       etaWeeks: Math.max(1, Math.round(totalHours / Math.max(1, input.hoursPerWeek))),
       algorithm: generated.algorithm,
-      milestones: phases.length,
+      milestones: totalMilestones,
     });
   }
   return outcomes;

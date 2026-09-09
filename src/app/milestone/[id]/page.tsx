@@ -124,10 +124,17 @@ export default function MilestonePage() {
   const onQuizFinished = async (result: QuizResult) => {
     if (result.milestoneCompleted) {
       toast({ title: "Milestone complete", description: "Gate passed — next phase unlocked." });
+      await load();
     } else if (result.replanHappened) {
-      toast({ title: "Path replanned", description: "A remediation phase was added before this milestone's skills." });
+      toast({
+        title: "Path replanned with refresher",
+        description: "Review your score and explanations below. A refresher phase has been added to your roadmap.",
+        duration: 8000,
+      });
+      // Preserve result view so learner can read score and explanations before returning to roadmap
+    } else {
+      await load();
     }
-    await load();
   };
 
   const submitProject = async () => {
@@ -479,7 +486,7 @@ export default function MilestonePage() {
         {gateQuiz && (
           <QuizRunner
             quiz={gateQuiz}
-            onSubmit={(qid, answers) => api.submitQuiz(qid, answers)}
+            onSubmit={(qid, answers) => api.submitQuiz(qid, answers, learnerId ?? undefined)}
             onFinished={onQuizFinished}
             title="Gate quiz"
           />

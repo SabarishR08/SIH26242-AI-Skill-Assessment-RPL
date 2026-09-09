@@ -34,21 +34,23 @@ export function calibrateZpd(evidencedLevel: number, hoursPerWeek: number): ZpdS
   const capacityBands = hoursPerWeek <= 4 ? 0 : hoursPerWeek <= 8 ? 1 : hoursPerWeek <= 15 ? 2 : 3;
   const multiplier = Math.min(3, 1.5 + capacityBands * 0.25);
 
-  const targetDifficulty = Math.max(1, Math.min(5, Math.round(level * multiplier + 0.5)));
-
-  // Hours scale with target difficulty and the gap being stretched across.
-  const gap = Math.max(0, targetDifficulty - level);
-  const baseHours = 4 + targetDifficulty * 3 + gap * 2.5;
-  const estimatedHours = Math.round(Math.min(24, Math.max(4, baseHours)));
+  // PF-23: Additive floor prevents level 0 from collapsing targetDifficulty and project sizing
+  const effectiveLevel = Math.max(1, level);
+  const targetDifficulty = Math.max(1, Math.min(5, Math.round(effectiveLevel * (multiplier / 2) + 0.5)));
 
   const requirementCount = Math.max(3, Math.min(6, 2 + targetDifficulty));
+
+  // Derive hours from requirement count, target difficulty, and stretch gap
+  const gap = Math.max(0, targetDifficulty - level);
+  const baseHours = requirementCount * 2.8 + targetDifficulty * 2.2 + gap * 1.8;
+  const estimatedHours = Math.round(Math.min(24, Math.max(4, baseHours)));
 
   const tier: ZpdSpec["tier"] =
     multiplier <= 1.5 ? "gentle-stretch" : multiplier <= 2.25 ? "solid-stretch" : "strong-stretch";
 
   const rationale =
-    `Evidenced level ${level} × stretch ${multiplier.toFixed(2)} → target difficulty ${targetDifficulty}/5. ` +
-    `Sized for ${estimatedHours}h of work — challenging enough to prove the skill, close enough to reach.`;
+    `Evidenced level ${level} (effective baseline ${effectiveLevel}) × stretch ${multiplier.toFixed(2)} → target difficulty ${targetDifficulty}/5. ` +
+    `Sized for ${estimatedHours}h of work across ${requirementCount} core requirements — challenging enough to prove the skill, close enough to reach.`;
 
   return { stretchMultiplier: multiplier, targetDifficulty, estimatedHours, requirementCount, tier, rationale };
 }

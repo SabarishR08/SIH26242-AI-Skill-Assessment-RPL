@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json } from "@/lib/api-helpers";
+import { apiError, handleApiError, json } from "@/lib/api-helpers";
 import { analyzeResume, extractPdfText } from "@/lib/evidence/resume";
 import { fuseEvidence, logEvidence } from "@/lib/evidence/fuse";
 import { loadSkillGraph } from "@/lib/engine/data";
@@ -39,6 +39,13 @@ export async function POST(request: Request) {
     }
 
     if (!learnerId || !text.trim()) return apiError("learnerId and resume text/file are required");
+
+    // PF-27: Cap and truncate resume text at 50KB before forwarding to LLM
+    const MAX_RESUME_TEXT_CHARS = 50_000;
+    if (text.length > MAX_RESUME_TEXT_CHARS) {
+      text = text.slice(0, MAX_RESUME_TEXT_CHARS);
+    }
+
     if (text.trim().length < 80) return apiError("That text looks too short to analyse — paste the full resume/profile text (80+ characters)");
 
     const learner = await db.learner.findUnique({ where: { id: learnerId } });
@@ -76,6 +83,6 @@ export async function POST(request: Request) {
       assessmentUpdates: updates,
     });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Resume ingestion failed", 500);
+    return handleApiError(e, "Resume ingestion failed");
   }
 }

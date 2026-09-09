@@ -39,7 +39,7 @@ the **graph** structure, and your **goal** — plus the counterfactual.
 
 ### Evidence-based onboarding
 
-- **Multi-round streaming interview agent** — Aria asks adaptive questions
+- **Multi-round streaming interview agent** — Nexus asks adaptive questions
   one at a time, fills gaps in your profile based on what you've already said.
   Pausable state machine persisted server-side; refresh-safe.
 - **GitHub ingestion** — repos, languages, READMEs, topics, activity,

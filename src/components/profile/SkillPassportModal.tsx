@@ -80,7 +80,7 @@ export function SkillPassportModal({
 
   const copyShareableLink = () => {
     if (typeof window === "undefined") return;
-    const url = `${window.location.origin}/dashboard?passport=${data?.summary.passportId}`;
+    const url = `${window.location.origin}/dashboard?passport=${learnerId}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
     toast({ title: "Shareable verification link copied to clipboard!" });

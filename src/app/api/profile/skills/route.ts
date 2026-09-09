@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { apiError, json, readJson } from "@/lib/api-helpers";
+import { apiError, handleApiError, json, readJson } from "@/lib/api-helpers";
 import { loadSkillGraph } from "@/lib/engine/data";
 import { fuseEvidence } from "@/lib/evidence/fuse";
 
@@ -10,7 +10,10 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const learnerId = url.searchParams.get("learnerId");
-    if (!learnerId) return apiError("learnerId is required");
+    if (!learnerId) return apiError("learnerId is required", 400);
+
+    const learner = await db.learner.findUnique({ where: { id: learnerId } });
+    if (!learner) return apiError("Learner not found", 404);
 
     const assessments = await db.skillAssessment.findMany({
       where: { learnerId },
@@ -18,7 +21,7 @@ export async function GET(request: Request) {
     });
     return json({ assessments });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to load skills", 500);
+    return handleApiError(e, "Failed to load skills");
   }
 }
 
@@ -31,7 +34,10 @@ interface SetClaimsBody {
 export async function POST(request: Request) {
   try {
     const body = await readJson<SetClaimsBody>(request);
-    if (!body.learnerId || !Array.isArray(body.claims)) return apiError("learnerId and claims[] are required");
+    if (!body.learnerId || !Array.isArray(body.claims)) return apiError("learnerId and claims[] are required", 400);
+
+    const learner = await db.learner.findUnique({ where: { id: body.learnerId } });
+    if (!learner) return apiError("Learner not found", 404);
 
     const graph = await loadSkillGraph();
     const valid = body.claims
@@ -44,11 +50,11 @@ export async function POST(request: Request) {
         strength: 1,
       }));
 
-    if (!valid.length) return apiError("No valid skill claims provided");
+    if (!valid.length) return apiError("No valid skill claims provided", 400);
 
     const updates = await fuseEvidence(body.learnerId, "interview", valid);
     return json({ applied: valid.length, assessmentUpdates: updates });
   } catch (e) {
-    return apiError(e instanceof Error ? e.message : "Failed to set claims", 500);
+    return handleApiError(e, "Failed to set claims");
   }
 }
