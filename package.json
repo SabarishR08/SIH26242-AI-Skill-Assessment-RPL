@@ -24,9 +24,6 @@
     "ml:smoke": "python ml/run_all.py --smoke",
     "ml:install-encoder": "python3 ml/install_encoder.py ml/trained/run || python ml/install_encoder.py ml/trained/run"
   },
-  "engines": {
-    "node": ">=20.9.0"
-  },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.44",
     "@ai-sdk/gateway": "^4.0.67",
