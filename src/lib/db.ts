@@ -4,7 +4,10 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-const url = process.env.DATABASE_URL?.replace(/^["']|["']$/g, '').trim();
+let url = (process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL)?.replace(/^["']|["']$/g, '').trim();
+if (url && !url.includes('connect_timeout')) {
+  url += (url.includes('?') ? '&' : '?') + 'connect_timeout=15';
+}
 
 export const db =
   globalForPrisma.prisma ??
