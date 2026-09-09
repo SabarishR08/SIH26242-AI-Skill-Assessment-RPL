@@ -67,10 +67,12 @@ describe("/api/health GET", () => {
   it("reports fallback llm when no API keys set", async () => {
     const origGateway = process.env.AI_GATEWAY_API_KEY;
     const origGroq = process.env.GROQ_API_KEY;
+    const origGroqPool = process.env.GROQ_API_KEYS;
     const origOpenai = process.env.OPENAI_API_KEY;
     const origNvidia = process.env.NVIDIA_API_KEY;
     delete process.env.AI_GATEWAY_API_KEY;
     delete process.env.GROQ_API_KEY;
+    delete process.env.GROQ_API_KEYS;
     delete process.env.OPENAI_API_KEY;
     delete process.env.NVIDIA_API_KEY;
 
@@ -86,6 +88,7 @@ describe("/api/health GET", () => {
     // Restore
     if (origGateway) process.env.AI_GATEWAY_API_KEY = origGateway;
     if (origGroq) process.env.GROQ_API_KEY = origGroq;
+    if (origGroqPool) process.env.GROQ_API_KEYS = origGroqPool;
     if (origOpenai) process.env.OPENAI_API_KEY = origOpenai;
     if (origNvidia) process.env.NVIDIA_API_KEY = origNvidia;
     resetEnvCache();

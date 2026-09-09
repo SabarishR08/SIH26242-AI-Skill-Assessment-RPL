@@ -17,6 +17,8 @@
  * (timeouts, retries, JSON repair, SSE streaming) is uniform.
  */
 
+import { getGroqKeys, getNextGroqKey } from "./groq-pool";
+
 export interface LlmMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -53,20 +55,24 @@ const DEFAULT_TIMEOUT_MS = 45_000;
 function resolveProviders(): Provider[] {
   const providers: Provider[] = [];
 
-  // 1. Direct Groq — fallback when no gateway key
-  const groqKey = process.env.GROQ_API_KEY;
-  if (groqKey) {
-    providers.push({
-      name: "groq",
-      model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
-      baseUrl: process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1",
-      apiKey: groqKey,
-    });
+  // 1. Direct Groq — round-robin pool with automatic key failover
+  const groqKeys = getGroqKeys();
+  if (groqKeys.length > 0) {
+    const nextKey = getNextGroqKey();
+    const orderedKeys = [nextKey, ...groqKeys.filter((k) => k !== nextKey)];
+    for (const k of orderedKeys) {
+      providers.push({
+        name: "groq",
+        model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+        baseUrl: process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1",
+        apiKey: k,
+      });
+    }
   }
 
   // 3. NVIDIA (only if no Groq/Gateway)
   const nvidiaKey = process.env.NVIDIA_API_KEY;
-  if (nvidiaKey && !groqKey) {
+  if (nvidiaKey && groqKeys.length === 0) {
     providers.push({
       name: "nvidia",
       model: process.env.NVIDIA_MODEL || "meta/llama-3.1-70b-instruct",

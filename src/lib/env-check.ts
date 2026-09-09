@@ -6,6 +6,8 @@
  * callers can inspect or log.
  */
 
+import { hasGroqKey } from "./ai/groq-pool";
+
 export interface EnvStatus {
   ok: boolean;
   warnings: string[];
@@ -34,11 +36,11 @@ export function validateEnv(): EnvStatus {
   }
 
   // ── LLM providers (at least one required) ────────────────────────────
-    const groqKey = process.env.GROQ_API_KEY;
+  const groqConfigured = Boolean(process.env.GROQ_API_KEY || process.env.GROQ_API_KEYS);
   const openaiKey = process.env.OPENAI_API_KEY;
   const nvidiaKey = process.env.NVIDIA_API_KEY;
 
-    if (groqKey) {
+  if (groqConfigured) {
     providers.push("groq");
   }
   if (openaiKey) {
