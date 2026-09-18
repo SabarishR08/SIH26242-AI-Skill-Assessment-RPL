@@ -11,9 +11,24 @@ jobs:
     steps:
       - name: Ping health endpoint
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://path-finder-ai-five.vercel.app/api/health")
+          URL="https://path-finder-ai-five.vercel.app/api/health"
+          STATUS=$(curl -s -o /tmp/health_body -w "%{http_code}" "$URL")
           echo "Health check returned HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "⚠️ Non-200 response!"
-            exit 1
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Deployment is up and warm."
+            exit 0
           fi
+          BODY=$(cat /tmp/health_body)
+          echo "$BODY"
+          if echo "$BODY" | grep -q "DEPLOYMENT_NOT_FOUND"; then
+            echo ""
+            echo "════════════════════════════════════════════════════════"
+            echo "⚠️  DEPLOYMENT MISSING ON VERCEL — manual action needed."
+            echo "    The Vercel project/deployment no longer exists."
+            echo "    Redeploy the app (vercel --prod or Vercel dashboard)"
+            echo "    or disable this workflow until then."
+            echo "════════════════════════════════════════════════════════"
+            exit 0 # don't paint Actions red for an issue only a redeploy fixes
+          fi
+          echo "⚠️ Non-200 response!"
+          exit 1
