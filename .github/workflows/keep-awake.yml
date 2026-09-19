@@ -9,26 +9,26 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping health endpoint
+      - name: Ping production deployment
         run: |
-          URL="https://path-finder-ai-five.vercel.app/api/health"
-          STATUS=$(curl -s -o /tmp/health_body -w "%{http_code}" "$URL")
+          # Updated 2026-09-19: app redeployed at pathfinder-ai.vercel.app.
+          # Probing the root (the Next.js app has no /api/health route).
+          URL="https://pathfinder-ai.vercel.app"
+          STATUS=$(curl -s -o /tmp/health_body -w "%{http_code}" --max-time 90 "$URL")
           echo "Health check returned HTTP $STATUS"
-          if [ "$STATUS" = "200" ]; then
+          if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ] || [ "$STATUS" = "308" ]; then
             echo "✅ Deployment is up and warm."
             exit 0
           fi
-          BODY=$(cat /tmp/health_body)
+          BODY=$(cat /tmp/health_body || true)
           echo "$BODY"
           if echo "$BODY" | grep -q "DEPLOYMENT_NOT_FOUND"; then
             echo ""
             echo "════════════════════════════════════════════════════════"
-            echo "⚠️  DEPLOYMENT MISSING ON VERCEL — manual action needed."
-            echo "    The Vercel project/deployment no longer exists."
-            echo "    Redeploy the app (vercel --prod or Vercel dashboard)"
-            echo "    or disable this workflow until then."
+            echo "🚨 DEPLOYMENT MISSING ON VERCEL — failing (real downtime)."
+            echo "    Redeploy the app (vercel --prod or Vercel dashboard)."
             echo "════════════════════════════════════════════════════════"
-            exit 0 # don't paint Actions red for an issue only a redeploy fixes
+            exit 1
           fi
-          echo "⚠️ Non-200 response!"
+          echo "🚨 Non-200 response from production — failing (real downtime)."
           exit 1
