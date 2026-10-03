@@ -95,14 +95,16 @@ async function fetchRepoEvidenceFallback(owner: string, repo: string): Promise<R
   const descMatch = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i);
   const description = descMatch ? descMatch[1].replace(new RegExp(`\\s*-\\s*${owner}\\/${repo}.*$`, "i"), "").trim() : null;
 
-  // 2. Languages
+  // 2. Languages. GitHub's aria-label already carries a percentage
+  // (e.g. "TypeScript 92.3%"), so keep one decimal — scaling by 100 here
+  // inflated every language 100x and misreported sizes downstream.
   const languages: Record<string, number> = {};
   const langRegex = /aria-label="([^"]+?)\s+(\d+(?:\.\d+)?%)"/g;
   let match: RegExpExecArray | null;
   while ((match = langRegex.exec(html)) !== null) {
     const lang = match[1];
     const pct = parseFloat(match[2]);
-    languages[lang] = Math.round(pct * 100);
+    languages[lang] = Math.round(pct * 10) / 10;
   }
 
   // 3. File tree from repository page links and embedded React payload
