@@ -393,5 +393,227 @@ export const QUALIFICATION_PACKS: Record<string, QualificationPack> = {
         audioGuideAvailable: true
       }
     ]
+  },
+  "electrician-domestic-l4": {
+    id: "electrician-domestic-l4",
+    qpCode: "ELE/Q6001",
+    title: "Domestic Solutions Electrician",
+    titleHindi: "घरेलू विद्युत तकनीशियन (इलेक्ट्रीशियन)",
+    titleMarathi: "घरगुती वायरमन / इलेक्ट्रिशियन",
+    sectorSkillCouncil: "Electronics & Power Sector Skill Council",
+    nsqfLevel: 4,
+    minExperienceMonths: 24,
+    theoryWeight: 30,
+    practicalWeight: 70,
+    passThreshold: 70,
+    nosUnits: [
+      {
+        code: "ELE/N6001",
+        title: "Install Internal Concealed & Surface Wiring in Domestic Buildings",
+        titleHindi: "आंतरिक घरेलू वायरिंग और डिस्ट्रीब्यूशन बॉक्स सेटअप",
+        titleMarathi: "घरगुती वायरिंग आणि वितरण बोर्ड स्थापना",
+        weight: 30,
+        criticalSafety: false,
+        keyCompetencies: ["Conduit Bending & Fixing", "Wire Gauge Sizing (1.5/2.5/4 sq mm)", "Phase Balance", "Color Coding"]
+      },
+      {
+        code: "ELE/N6002",
+        title: "Diagnose Faults in Single-Phase & Three-Phase Consumer Units",
+        titleHindi: "सिंगल और थ्री-फेज फॉल्ट डायग्नोसिस और सुधार",
+        titleMarathi: "सिंगल व थ्री-फेज विद्युत दोष निवारण",
+        weight: 35,
+        criticalSafety: true,
+        keyCompetencies: ["Megger Insulation Test", "Continuity Testing", "Short-Circuit Tracing", "Voltage Drop Analysis"]
+      },
+      {
+        code: "ELE/N6003",
+        title: "Earth Resistance Testing and RCCB / ELCB Protection Verification",
+        titleHindi: "अर्थिंग रेजिस्टेंस जांच और आरसीसीबी सुरक्षा परीक्षण",
+        titleMarathi: "अर्थिंग तपासणी आणि आरसीसीबी सुरक्षा चाचणी",
+        weight: 20,
+        criticalSafety: true,
+        keyCompetencies: ["Earth Pit Resistance Measurement (<5 Ohms)", "RCCB 30mA Trip Timing Test", "Neutral Leakage Isolation"]
+      },
+      {
+        code: "ELE/N9901",
+        title: "Electrical Safety, Shock Treatment & Fire Extinguisher Utilization",
+        titleHindi: "विद्युत सुरक्षा, शॉक प्राथमिक उपचार और सुरक्षा उपकरण",
+        titleMarathi: "विद्युत सुरक्षा, शॉक प्रथमोपचार आणि सुरक्षितता",
+        weight: 15,
+        criticalSafety: true,
+        keyCompetencies: ["Lockout-Tagout (LOTO)", "Insulated Tool Rating (1000V)", "CO2 Fire Extinguisher Handling"]
+      }
+    ],
+    vivaQuestions: [
+      {
+        id: "viva-elec-1",
+        nosCode: "ELE/N6003",
+        questionEn: "What is the exact functional difference between an MCB and an RCCB, and why does an RCCB trip even when total current is well below the breaker rating?",
+        questionHi: "एमसीबी (MCB) और आरसीसीबी (RCCB) में क्या अंतर है, और कुल करंट कम होने पर भी आरसीसीबी क्यों ट्रिप हो जाता है?",
+        questionMr: "एमसीबी आणि आरसीसीबी यात काय फरक आहे, आणि करंट कमी असूनही आरसीसीबी का ट्रिप होतो?",
+        audioPromptTextHi: "एमसीबी और आरसीसीबी में क्या मुख्य अंतर है? आरसीसीबी किस स्थिति में ट्रिप होता है?",
+        audioPromptTextMr: "एमसीबी आणि आरसीसीबी मध्ये काय फरक आहे? आरसीसीबी कोणत्या वेळी ट्रिप होतो?",
+        expectedKeywords: ["residual current", "earth leakage", "phase neutral imbalance", "shock protection", "overcurrent", "शॉक", "अर्थ लीकेज", "न्यूट्रल"],
+        evaluationRubric: {
+          excellent: "Explains MCB protects against overcurrent/short-circuit using thermal/magnetic trip, whereas RCCB detects current imbalance between phase and neutral (typically 30mA leakage to ground) to protect human life from lethal shock.",
+          adequate: "States that MCB is for overload and RCCB protects humans from electric shock.",
+          inadequate: "Confuses RCCB with standard fuse or claims RCCB trips on high voltage."
+        },
+        sampleAnswerHi: "एमसीबी ओवरलोड और शॉर्ट-सर्किट से बचाता है। जबकि आरसीसीबी फेज और न्यूट्रल के करंट का अंतर मापता है। अगर ३० मिलीएम्पीयर करंट भी जमीन में लीक होता है तो आरसीसीबी तुरंत ट्रिप होकर इंसान की जान बचाता है।",
+        sampleAnswerEn: "MCBs protect wiring from overload and short circuits. RCCBs monitor differential current between phase and neutral; even a tiny 30mA leakage to earth trips the RCCB instantly to prevent fatal shocks."
+      },
+      {
+        id: "viva-elec-2",
+        nosCode: "ELE/N6001",
+        questionEn: "Why is it forbidden to connect single-phase household loads using 1.0 sq mm copper wire for power outlets running 1.5-ton ACs or geysers?",
+        questionHi: "गीजर या डेढ़ टन एसी के लिए १ स्क्वायर एमएम तार का इस्तेमाल करना क्यों मना है?",
+        questionMr: "गीझर किंवा दीड टन एसी साठी १ स्क्वेअर एमएम वायर का वापरू नये?",
+        audioPromptTextHi: "एसी या गीजर के पावर पॉइंट में कम से कम कितने एमएम का तार लगाना चाहिए और क्यों?",
+        audioPromptTextMr: "एसी किंवा गीझर साठी कमीत कमी किती एमएम वायर लागते आणि का?",
+        expectedKeywords: ["current carrying capacity", "I2R heating", "fire hazard", "voltage drop", "4 sq mm", "तार गर्म होना", "आग का खतरा"],
+        evaluationRubric: {
+          excellent: "Calculates current demand (~8A-12A), cites 1.0 sq mm wire has max safe ampacity of only 8-10A in conduit, causing excessive I2R heating and insulation breakdown. Specifies minimum 4.0 sq mm for heavy inductive loads.",
+          adequate: "Mentions wire will overheat, burn insulation, and can cause a fire. Recommends thicker 4 sq mm wire.",
+          inadequate: "Suggests 1 sq mm is fine if an MCB is connected."
+        },
+        sampleAnswerHi: "डेढ़ टन एसी और गीजर १० से १२ एम्पीयर करंट खींचते हैं। १ एमएम तार केवल ८ एम्पीयर सह सकता है, जिससे तार गर्म होकर पिघल जाएगा और शॉर्ट सर्किट से घर में आग लग सकती है। कम से कम ४ एमएम तार जरूरी है।",
+        sampleAnswerEn: "Heavy 1.5-ton ACs pull 10-14A continuous current. A 1 sq mm wire has safe ampacity of under 10A, causing severe I2R thermal heating and melting insulation. A minimum 4.0 sq mm conductor is mandatory."
+      }
+    ],
+    practicalScenarios: [
+      {
+        id: "prac-elec-1",
+        nosCode: "ELE/N6003",
+        title: "Consumer Unit & Distribution Board Electrical Hazard Audit",
+        titleHindi: "डिस्ट्रीब्यूशन बोर्ड एवं आरसीसीबी सुरक्षा ऑडिट",
+        category: "FAULT_DIAGNOSIS",
+        scenarioDescription: "Inspect a residential distribution board that trips the main 30mA RCCB every time a kitchen appliance is turned on.",
+        scenarioDescriptionHindi: "एक घर का मेन आरसीसीबी कोई भी भारी उपकरण चालू करते ही ट्रिप हो जाता है। बोर्ड की जांच करें।",
+        inspectionPoints: [
+          { id: "e1", label: "Neutral bar accidentally linked to Earth terminal bar downstream of RCCB", isDefectOrCritical: true, explanation: "Neutral-earth cross bonding causes return current to divide between neutral and ground, immediately creating differential trip current in RCCB." },
+          { id: "e2", label: "Main incoming 32A MCB equipped with spark-suppression arc chute", isDefectOrCritical: false, explanation: "Standard BIS compliant breaker component." },
+          { id: "e3", label: "Missing rubber grommets on metal knockout holes with cables touching bare metal edges", isDefectOrCritical: true, explanation: "Sharp sheet metal will slice PVC insulation over time, energizing the metal distribution panel." }
+        ],
+        correctActionEn: "Separate the neutral and earth conductors into isolated busbars downstream of the RCCB, and install protective rubber grommets on all cabinet entries.",
+        correctActionHi: "आरसीसीबी के बाद न्यूट्रल और अर्थ को अलग-अलग बसबार में बांटें और धातु के किनारों पर रबर ग्रोमेट लगाएं।"
+      }
+    ],
+    bridgeModules: [
+      {
+        nosCode: "ELE/N6003",
+        title: "12-Hour Micro-Bridge: Earth Loop Impedance & RCCB Nuisance Trip Remediation",
+        titleHindi: "१२ घंटे का ब्रिज कोर्स: अर्थ लूप जांच और आरसीसीबी फॉल्ट डायग्नोसिस",
+        hoursRequired: 12,
+        learningOutcomes: [
+          "Measure prospective fault current and earth loop impedance (<1.5 ohms)",
+          "Isolate neutral-earth leakage faults using digital clamp meter",
+          "Test RCCB trip time at 1x and 5x rated residual operating current"
+        ],
+        practicalChecklist: [
+          "Earth loop tester calibration and outlet testing",
+          "Digital insulation tester (Megger 500V DC) across phase-to-earth",
+          "Distribution board color-coded re-termination"
+        ],
+        audioGuideAvailable: true
+      }
+    ]
+  },
+  "welder-mmaw-l3": {
+    id: "welder-mmaw-l3",
+    qpCode: "CSC/Q0204",
+    title: "Assistant Welder - MMAW",
+    titleHindi: "वेल्डर - मैनुअल मेटल आर्क वेल्डिंग (MMAW)",
+    titleMarathi: "वेल्डर - मॅन्युअल मेटल आर्क वेल्डिंग",
+    sectorSkillCouncil: "Capital Goods Skill Council",
+    nsqfLevel: 3,
+    minExperienceMonths: 18,
+    theoryWeight: 30,
+    practicalWeight: 70,
+    passThreshold: 70,
+    nosUnits: [
+      {
+        code: "CSC/N0204",
+        title: "Perform Manual Metal Arc Welding (MMAW) on Carbon Steels",
+        titleHindi: "कार्बन स्टील पर मैनुअल मेटल आर्क वेल्डिंग करना",
+        titleMarathi: "कार्बन स्टील प्लेट्सवर एमएमएडब्ल्यू वेल्डिंग करणे",
+        weight: 40,
+        criticalSafety: false,
+        keyCompetencies: ["Current Setting (Amperage selection)", "Arc Length Maintenance", "Electrode Angle (70-80 deg)", "Travel Speed"]
+      },
+      {
+        code: "CSC/N0205",
+        title: "Visual Quality Inspection of Welded Joints & Defect Identification",
+        titleHindi: "वेल्ड जॉइंट की गुणवत्ता जांच और दोष पहचान",
+        titleMarathi: "वेल्डिंग जॉइंटची तपासणी आणि दोष ओळखणे",
+        weight: 35,
+        criticalSafety: false,
+        keyCompetencies: ["Slag Chipping & Cleaning", "Undercut Detection", "Porosity Inspection", "Root Penetration Check"]
+      },
+      {
+        code: "CSC/N0001",
+        title: "Work Safely with High Temperatures, UV Radiation & Heavy Equipment",
+        titleHindi: "वेल्डिंग सुरक्षा, यूवी रेडिएशन बचाव और पीपीई",
+        titleMarathi: "वेल्डिंग सुरक्षितता, यूव्ही किरण संरक्षण आणि पीपीई",
+        weight: 25,
+        criticalSafety: true,
+        keyCompetencies: ["Welding Helmet Shade 10-12", "Leather Apron & Gauntlets", "Fume Extraction", "Hot Metal Tagging"]
+      }
+    ],
+    vivaQuestions: [
+      {
+        id: "viva-weld-1",
+        nosCode: "CSC/N0204",
+        questionEn: "What causes excessive slag inclusion and porosity in a manual metal arc weld, and how do you prevent moisture contamination in 7018 basic electrodes?",
+        questionHi: "वेल्डिंग करते समय स्लैग फंसने (Slag Inclusion) और पोरोसिटी (बुलबुले) का क्या कारण होता है, और 7018 इलेक्ट्रोड को नमी से कैसे बचाते हैं?",
+        questionMr: "वेल्डिंग करताना स्लॅग अडकणे आणि पोरोसिटी का निर्माण होते, आणि 7018 इलेक्ट्रोड सुरक्षित कसे ठेवावे?",
+        audioPromptTextHi: "वेल्डिंग में स्लैग फंसने और पोरोसिटी होने का क्या कारण है? 7018 इलेक्ट्रोड को ओवन में क्यों रखते हैं?",
+        audioPromptTextMr: "वेल्डिंग मध्ये स्लॅग अडकण्याचे कारण काय? 7018 इलेक्ट्रोड ओव्हन मध्ये का ठेवतात?",
+        expectedKeywords: ["slag inclusion", "porosity", "baking oven", "low hydrogen", "clean slag between passes", "damp electrode", "ओवन", "स्लैग", "नमी"],
+        evaluationRubric: {
+          excellent: "Identifies failure to chip slag between multiple weld passes causes slag inclusion, while damp electrodes release hydrogen/moisture causing porosity. Explicitly notes basic electrodes (E7018) must be stored in electrode holding ovens at 100°C–150°C.",
+          adequate: "Mentions dirty metal, poor chipping of slag, or moist electrodes as main causes.",
+          inadequate: "Claims welding faster stops porosity without understanding hydrogen contamination."
+        },
+        sampleAnswerHi: "अगर पहले पास का स्लैग ठीक से साफ नहीं किया जाए तो वो अगले पास में अंदर दबकर स्लैग इन्क्लूजन बनता है। नमी वाले इलेक्ट्रोड से हाइड्रोजन गैस निकलकर पोरोसिटी बनाती है। 7018 इलेक्ट्रोड को हमेशा हीटिंग ओवन में सूखा रखना चाहिए।",
+        sampleAnswerEn: "Failing to thoroughly chip slag between consecutive passes traps slag inside the joint. Damp electrodes release hydrogen moisture causing porosity. E7018 low-hydrogen electrodes must be pre-baked and kept in portable ovens."
+      }
+    ],
+    practicalScenarios: [
+      {
+        id: "prac-weld-1",
+        nosCode: "CSC/N0205",
+        title: "Structural Butt Weld Visual Inspection & Defect Audit",
+        titleHindi: "वेल्ड बीड गुणवत्ता और संरचनात्मक दोष निरीक्षण",
+        category: "TOOL_INSPECTION",
+        scenarioDescription: "Visually audit a 10mm structural steel V-butt weld joint prior to ultrasonic non-destructive testing.",
+        scenarioDescriptionHindi: "१० मिमी स्टील प्लेट के वेल्ड जॉइंट की दृश्य जांच करें।",
+        inspectionPoints: [
+          { id: "w1", label: "Continuous undercut along top toe measuring >1.5mm in depth", isDefectOrCritical: true, explanation: "Deep undercut reduces cross-sectional wall thickness, creating a severe stress concentration notch prone to fatigue cracking." },
+          { id: "w2", label: "Uniform weld bead reinforcement with 2mm crown height", isDefectOrCritical: false, explanation: "Meets standard AWS/BIS reinforcement specifications." },
+          { id: "w3", label: "Scattered pinhole surface porosity cluster near weld crater", isDefectOrCritical: true, explanation: "Indicates gas entrapment from rapid arc extinguish or draft winds blowing shield gas." }
+        ],
+        correctActionEn: "Grind out the undercut and porosity areas with an angle grinder down to sound base metal, preheat to 100°C, and re-weld with baked E7018 electrode.",
+        correctActionHi: "ग्राइंडर से डिफेक्ट वाले हिस्से को साफ करें और ओवन में सूखे 7018 इलेक्ट्रोड से दोबारा वेल्डिंग करें।"
+      }
+    ],
+    bridgeModules: [
+      {
+        nosCode: "CSC/N0205",
+        title: "12-Hour Micro-Bridge: MMAW Defect Rectification & Arc Speed Control",
+        titleHindi: "१२ घंटे का ब्रिज कोर्स: वेल्डिंग दोष सुधार और आर्क नियंत्रण",
+        hoursRequired: 12,
+        learningOutcomes: [
+          "Eliminate undercut through correct electrode angle (75 degrees) and side dwell",
+          "Maintain uniform arc length (2-3mm) preventing spatter and porosity",
+          "Apply multi-pass inter-run slag chipping technique"
+        ],
+        practicalChecklist: [
+          "Fillet weld break test inspection",
+          "Fillet weld gauge measurement",
+          "Oven temperature logging and electrode holding"
+        ],
+        audioGuideAvailable: true
+      }
+    ]
   }
 };

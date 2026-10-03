@@ -18,9 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const NAV = [
-  { href: "/onboarding", label: "Candidate Assessment", icon: FileCheck2 },
-  { href: "/viva", label: "Oral Viva (आवाज)", icon: Mic },
-  { href: "/practical", label: "Visual Practical", icon: Wrench },
+  { href: "/onboarding", label: "Candidate Registration", icon: FileCheck2 },
+  { href: "/viva", label: "Oral Viva (30%)", icon: Mic },
+  { href: "/practical", label: "Visual Practical (70%)", icon: Wrench },
   { href: "/bridge", label: "12-Hr Bridge Modules", icon: Sparkles },
   { href: "/certificate", label: "Verifiable RPL Certificate", icon: ShieldCheck },
   { href: "/admin", label: "MSDE Cockpit", icon: Building2 },

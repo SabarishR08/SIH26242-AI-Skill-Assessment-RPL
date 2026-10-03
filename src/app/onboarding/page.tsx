@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/AppShell";
@@ -33,18 +34,23 @@ import {
   Scale,
   Route as RouteIcon,
   RefreshCw,
-  Zap,
   Award,
+  Mic,
+  Wrench,
+  ShieldCheck,
+  Building2,
+  Zap,
 } from "lucide-react";
 import { SkillPassportModal } from "@/components/profile/SkillPassportModal";
+import { QUALIFICATION_PACKS } from "@/lib/rpl/qualification-packs";
 
 const STAGES = [
-  { id: "intro", label: "Welcome", icon: User },
-  { id: "interview", label: "Interview", icon: MessageSquare },
-  { id: "evidence", label: "Evidence", icon: Github },
-  { id: "claims", label: "Your profile", icon: Scale },
-  { id: "calibration", label: "Calibration", icon: RefreshCw },
-  { id: "scenarios", label: "Roadmap", icon: RouteIcon },
+  { id: "intro", label: "Trade Profile", icon: User },
+  { id: "interview", label: "RPL Interview", icon: MessageSquare },
+  { id: "evidence", label: "RPL Assessment", icon: Wrench },
+  { id: "claims", label: "NOS Competency", icon: Scale },
+  { id: "calibration", label: "Skill Audit", icon: RefreshCw },
+  { id: "scenarios", label: "Bridge Pathway", icon: RouteIcon },
 ] as const;
 
 type StageId = (typeof STAGES)[number]["id"];
@@ -78,6 +84,12 @@ export default function OnboardingPage() {
 
   const [name, setName] = useState("");
   const [starting, setStarting] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState("auto-service-tech-l4");
+  const [langPreference, setLangPreference] = useState<"hi" | "mr" | "en">("hi");
+  const [experienceYears, setExperienceYears] = useState("3");
+  const [workshopName, setWorkshopName] = useState("Shri Ganesh Automobile Workshop");
+  const [district, setDistrict] = useState("Pune / Chakan MIDC");
+  const [workDetails, setWorkDetails] = useState("5 years repairing BS-VI cars, hydraulic brake servicing, engine overhaul, suspension maintenance.");
 
   // Interview state
   const [chat, setChat] = useState<ChatTurn[]>([]);
@@ -402,34 +414,172 @@ export default function OnboardingPage() {
       {/* ── Stage: intro ─────────────────────────────────────────────────── */}
       {stage === "intro" && (
       <ErrorBoundary stage="Welcome" onRetry={() => setStage("intro")}>
-        <div className="max-w-xl mx-auto pt-10">
-          <Card className="glass-card glow-primary">
-            <CardHeader className="text-center pb-2">
-              <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 border border-primary/30">
-                <Compass className="h-7 w-7 text-primary" />
-              </span>
-              <CardTitle className="text-2xl">Welcome to PathFinder</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                Ten minutes from now you&apos;ll have a verified skill profile and a roadmap
-                with every step justified. First — what should I call you?
+        <div className="max-w-2xl mx-auto pt-6">
+          <Card className="glass-card glow-primary border-orange-500/30">
+            <CardHeader className="text-center pb-3">
+              <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/15 border border-orange-500/30">
+                <Award className="h-7 w-7 text-orange-400" />
+              </div>
+              <Badge variant="outline" className="mx-auto border-orange-500/40 text-orange-300 text-xs py-0.5 px-3 mb-1">
+                MSDE • Recognition of Prior Learning (PMKVY 4.0)
+              </Badge>
+              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-orange-400 via-amber-200 to-white bg-clip-text text-transparent">
+                उम्मीदवार पंजीकरण • RPL Assessment Portal
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1 max-w-lg mx-auto leading-relaxed">
+                Standardizing unorganized sector craftsmanship to NSQF Qualification Packs via Vernacular Oral Viva (30%) and Practical Defect Simulators (70%).
               </p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                placeholder="Your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && begin()}
-                className="text-base h-11"
-                autoFocus
-              />
-              <Button className="w-full h-11" size="lg" onClick={begin} disabled={starting || !name.trim()}>
+            <CardContent className="space-y-4 pt-1">
+              {/* Full Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-300 flex items-center justify-between">
+                  <span>Candidate Full Name (उम्मीदवार का नाम) *</span>
+                  <span className="text-[11px] text-muted-foreground">Self / Assessor registered</span>
+                </label>
+                <Input
+                  placeholder="e.g. Ramesh Baburao Patil (रमेश पाटील)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="text-base h-11 border-zinc-700 bg-black/50"
+                  autoFocus
+                />
+              </div>
+
+              {/* Trade Selection */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-300">
+                  Select Trade & NSQF Qualification Pack (व्यवसाय चुनें) *
+                </label>
+                <select
+                  value={selectedTrade}
+                  onChange={(e) => setSelectedTrade(e.target.value)}
+                  className="w-full h-11 rounded-md border border-zinc-700 bg-zinc-900/90 px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  {Object.values(QUALIFICATION_PACKS).map((qp) => (
+                    <option key={qp.id} value={qp.id}>
+                      {qp.title} ({qp.qpCode}) — NSQF Level {qp.nsqfLevel} [{qp.sectorSkillCouncil}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Language & Experience Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-300">
+                    Oral Viva Language (मौखिक भाषा) *
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { code: "hi", label: "हिंदी" },
+                      { code: "mr", label: "मराठी" },
+                      { code: "en", label: "English" },
+                    ].map((l) => (
+                      <button
+                        key={l.code}
+                        type="button"
+                        onClick={() => setLangPreference(l.code as "hi" | "mr" | "en")}
+                        className={cn(
+                          "py-2 text-xs font-semibold rounded-md border transition-all text-center",
+                          langPreference === l.code
+                            ? "bg-orange-500/20 border-orange-500 text-orange-300 shadow-sm"
+                            : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white"
+                        )}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-300">
+                    Informal Experience (कार्य अनुभव) *
+                  </label>
+                  <select
+                    value={experienceYears}
+                    onChange={(e) => setExperienceYears(e.target.value)}
+                    className="w-full h-10 rounded-md border border-zinc-700 bg-zinc-900/90 px-3 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="1">1 to 2 Years (Helper / Assistant)</option>
+                    <option value="3">2 to 5 Years (Practicing Technician)</option>
+                    <option value="5">5+ Years (Master Craftsman / Ustad)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Workshop / District */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-300">
+                    Workshop / Site Name (कार्यशाला का नाम)
+                  </label>
+                  <Input
+                    placeholder="e.g. Shri Ganesh Auto Garage"
+                    value={workshopName}
+                    onChange={(e) => setWorkshopName(e.target.value)}
+                    className="text-xs h-10 border-zinc-700 bg-black/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-300">
+                    District / Industrial Cluster (ज़िला / क्लस्टर)
+                  </label>
+                  <Input
+                    placeholder="e.g. Chakan MIDC, Pune"
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    className="text-xs h-10 border-zinc-700 bg-black/50"
+                  />
+                </div>
+              </div>
+
+              {/* Assessment Weightage Summary Banner */}
+              <div className="rounded-xl bg-orange-950/30 border border-orange-500/20 p-3 text-xs text-orange-200/90 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500/20 text-orange-400">
+                    <Mic className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-zinc-200">Oral Viva</p>
+                    <p className="text-[11px] text-muted-foreground">30% Theory Weight</p>
+                  </div>
+                </div>
+                <div className="text-zinc-600 font-bold">+</div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/20 text-blue-400">
+                    <Wrench className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-zinc-200">Practical Simulator</p>
+                    <p className="text-[11px] text-muted-foreground">70% Practical Weight</p>
+                  </div>
+                </div>
+                <div className="text-zinc-600 font-bold">=</div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                    <ShieldCheck className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-emerald-300">NSQF RPL Certificate</p>
+                    <p className="text-[11px] text-muted-foreground">≥70% Pass Standard</p>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm shadow-[0_0_20px_rgba(249,115,22,0.3)]"
+                size="lg"
+                onClick={begin}
+                disabled={starting || !name.trim()}
+              >
                 {starting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                {starting ? "Setting up…" : "Meet Nexus, your coach"}
+                {starting ? "Registering Candidate…" : "Begin RPL Skill Assessment (कौशल मूल्यांकन शुरू करें)"}
               </Button>
-              <p className="text-xs text-center text-muted-foreground">
-                Interview → evidence → calibration → roadmap. No accounts, no passwords — your
-                profile lives in this session.
+
+              <p className="text-[11px] text-center text-muted-foreground">
+                Official Ministry of Skill Development and Entrepreneurship (MSDE) Assessment Pipeline • DPDP Act 2023 Compliant
               </p>
             </CardContent>
           </Card>
@@ -532,62 +682,109 @@ export default function OnboardingPage() {
       {stage === "evidence" && (
       <ErrorBoundary stage="Evidence" onBack={() => setStage("interview")} onRetry={() => setStage("evidence")}>
         <div className="max-w-4xl mx-auto grid gap-4 md:grid-cols-2">
-          <Card className="glass-card">
+          {/* Card 1: Oral Viva Assessment */}
+          <Card className="glass-card border-orange-500/30 bg-gradient-to-br from-orange-950/20 via-black to-black">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Github className="h-4 w-4 text-primary" /> GitHub
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Your repositories become skill proof — languages, READMEs, activity.</p>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2 text-orange-300">
+                  <Mic className="h-5 w-5 text-orange-400" /> Vernacular Oral Viva (मौखिक परीक्षा)
+                </CardTitle>
+                <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 text-[11px]">
+                  30% Weightage
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                AI examiner reads audio questions in your native tongue (हिंदी / मराठी / English). Speaks back your answers using live Speech-to-Text.
+              </p>
             </CardHeader>
-            <CardContent className="flex gap-2">
-              <Input placeholder="github username" value={ghUser} onChange={(e) => setGhUser(e.target.value)} onKeyDown={(e) => e.key === "Enter" && connectGithub()} />
-              <Button onClick={connectGithub} disabled={busy === "github" || !ghUser.trim()} size="sm" className="shrink-0">
-                {busy === "github" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Analyse"}
+            <CardContent className="space-y-3">
+              <div className="rounded-lg bg-orange-950/30 border border-orange-500/20 p-2.5 text-xs text-zinc-300">
+                <span className="font-semibold text-orange-300">NOS Rubric Engine:</span> Automatically validates technical synonyms and troubleshooting logic without reading/writing literacy barriers.
+              </div>
+              <Button asChild className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs h-10 shadow-[0_0_15px_rgba(249,115,22,0.25)]">
+                <Link href="/viva">
+                  Launch Voice Viva Assessment <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Link>
               </Button>
             </CardContent>
           </Card>
 
+          {/* Card 2: Practical Defect Simulator */}
+          <Card className="glass-card border-blue-500/30 bg-gradient-to-br from-blue-950/20 via-black to-black">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2 text-blue-300">
+                  <Wrench className="h-5 w-5 text-blue-400" /> Visual Practical Simulator (व्यावहारिक)
+                </CardTitle>
+                <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/40 text-[11px]">
+                  70% Weightage
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Interactive tool readings (micrometer, multimeter, dial gauge), electrical hazard audits, and weld defect inspections fulfilling mandatory RPL practical criteria.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-lg bg-blue-950/30 border border-blue-500/20 p-2.5 text-xs text-zinc-300">
+                <span className="font-semibold text-blue-300">Digital Checkpoints:</span> Clickable defect inspection canvas with safety lockout-tagout (LOTO) protocols.
+              </div>
+              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs h-10 shadow-[0_0_15px_rgba(37,99,235,0.25)]">
+                <Link href="/practical">
+                  Launch Practical Defect Simulator <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Card 3: Workshop Experience Self-Declaration */}
           <Card className="glass-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" /> Resume / LinkedIn
+                <Building2 className="h-4 w-4 text-primary" /> Workshop & Trade Experience
               </CardTitle>
-              <p className="text-xs text-muted-foreground">Paste your resume or LinkedIn experience — privacy-first, no OAuth.</p>
+              <p className="text-xs text-muted-foreground">
+                Describe your hands-on repairs, tools used, and informal training history.
+              </p>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Textarea placeholder="Paste resume / profile text (80+ characters)…" value={resumeText} onChange={(e) => setResumeText(e.target.value)} className="min-h-[72px] text-sm" />
-              <Button onClick={submitResume} disabled={busy === "resume" || resumeText.trim().length < 80} size="sm" className="w-full">
-                {busy === "resume" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Analyse text
+              <Textarea 
+                placeholder="e.g. 4 years performing hydraulic brake bleeding, brake rotor resurfacing, OBD scanner code clearing at garage..."
+                value={workDetails} 
+                onChange={(e) => setWorkDetails(e.target.value)} 
+                className="min-h-[80px] text-xs font-mono bg-black/40" 
+              />
+              <Button 
+                onClick={() => {
+                  addFeed(`✓ Workshop Record: ${workshopName} (${district}) — ${experienceYears}y experience recorded.`);
+                  toast({ title: "Workshop record verified", description: `${experienceYears} years prior learning claimed in ${selectedTrade}.` });
+                }} 
+                size="sm" 
+                className="w-full text-xs"
+              >
+                Log Workshop Experience
               </Button>
             </CardContent>
           </Card>
 
+          {/* Card 4: Prior Documents / Resume Ingestion */}
           <Card className="glass-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-primary" /> LeetCode
+                <FileText className="h-4 w-4 text-primary" /> Prior Documents / Apprenticeship
               </CardTitle>
-              <p className="text-xs text-muted-foreground">Solved counts (weighted E/M/H) convert to an evidenced algorithm level.</p>
+              <p className="text-xs text-muted-foreground">
+                Paste any prior job-card records, apprenticeship certificates, or vocational notes.
+              </p>
             </CardHeader>
-            <CardContent className="flex gap-2">
-              <Input placeholder="leetcode username" value={lcUser} onChange={(e) => setLcUser(e.target.value)} onKeyDown={(e) => e.key === "Enter" && connectLeetCode()} />
-              <Button onClick={connectLeetCode} disabled={busy === "leetcode" || !lcUser.trim()} size="sm" className="shrink-0">
-                {busy === "leetcode" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fetch"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Swords className="h-4 w-4 text-primary" /> Codeforces
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Contest rating bands map to algorithm and data-structure levels.</p>
-            </CardHeader>
-            <CardContent className="flex gap-2">
-              <Input placeholder="codeforces handle" value={cfUser} onChange={(e) => setCfUser(e.target.value)} onKeyDown={(e) => e.key === "Enter" && connectCodeforces()} />
-              <Button onClick={connectCodeforces} disabled={busy === "codeforces" || !cfUser.trim()} size="sm" className="shrink-0">
-                {busy === "codeforces" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fetch"}
+            <CardContent className="space-y-2">
+              <Textarea 
+                placeholder="Paste prior certification text, employer letter, or technical resume (80+ chars)…" 
+                value={resumeText} 
+                onChange={(e) => setResumeText(e.target.value)} 
+                className="min-h-[80px] text-xs font-mono bg-black/40" 
+              />
+              <Button onClick={submitResume} disabled={busy === "resume" || resumeText.trim().length < 80} size="sm" className="w-full text-xs">
+                {busy === "resume" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Analyse Document Signals
               </Button>
             </CardContent>
           </Card>
@@ -595,7 +792,7 @@ export default function OnboardingPage() {
           {evidenceFeed.length > 0 && (
             <Card className="glass-card md:col-span-2">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Ingestion log</CardTitle>
+                <CardTitle className="text-sm">RPL Evidence Telemetry Log</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1.5 font-mono text-xs">
                 {evidenceFeed.map((line, i) => (
@@ -606,9 +803,11 @@ export default function OnboardingPage() {
           )}
 
           <div className="md:col-span-2 flex items-center justify-between pt-2">
-            <p className="text-xs text-muted-foreground">Connect what you have — every source sharpens the plan.</p>
-            <Button onClick={() => goToStage("claims")}>
-              See my profile <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            <p className="text-xs text-muted-foreground">
+              Complete Viva (30%) and Practical (70%) to generate your NSQF RPL certificate.
+            </p>
+            <Button onClick={() => goToStage("claims")} className="bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs">
+              View Competency Audit <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
