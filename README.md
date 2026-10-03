@@ -1,11 +1,10 @@
-# PathFinder AI
+# PathFinder RPL (SIH26242)
 
-**Learning paths built on proof, not vibes.**
+**AI-Assisted Skill Assessment Tool for Recognition of Prior Learning (RPL)**  
+*Smart India Hackathon 2026 • Ministry of Skill Development and Entrepreneurship (MSDE) • Smart Education*
 
-An evidence-based adaptive learning path engine: multi-round AI onboarding,
-real skill verification from GitHub/LeetCode/Codeforces, deterministic
-graph-based roadmaps, project verification, and replanning that reacts to
-your progress.
+> Built on the **PathFinder AI** architecture (Top 3 HCLTech AI Amplified Challenge).
+> An evidence-based, multi-modal assessment engine designed to assess, calibrate, bridge, and certify experiential & informal workers under the National Skills Qualification Framework (NSQF).
 
 ---
 

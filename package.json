@@ -1,8 +1,8 @@
 {
-  "name": "pathfinder-ai",
+  "name": "sih26242-rpl-ai",
   "version": "2.0.0",
   "private": true,
-  "description": "Evidence-based adaptive learning path engine \u2014 multi-round AI onboarding, real GitHub/LeetCode/Codeforces skill verification, deterministic graph-based roadmaps, project verification and adaptive replanning.",
+  "description": "AI-Assisted Skill Assessment Tool for Recognition of Prior Learning (RPL) - Smart India Hackathon 2026 (MSDE / SIH26242). Built on PathFinder AI architecture.",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
