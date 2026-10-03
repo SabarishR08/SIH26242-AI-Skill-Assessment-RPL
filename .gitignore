@@ -17,6 +17,7 @@ db/*.db
 db/*.db-journal
 db/*.db-wal
 db/*.db-shm
+prisma/*.db*
 prisma/migrations/dev.db*
 
 # Logs
