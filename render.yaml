@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: pathfinder-ai
+    name: sih-rpl-ai
     runtime: node
     plan: free
     buildCommand: npm install && npx prisma generate && npm run build
