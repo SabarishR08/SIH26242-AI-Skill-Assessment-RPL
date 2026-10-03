@@ -107,7 +107,7 @@ export default function AdminCockpitPage() {
             </div>
             <div className="text-3xl sm:text-4xl font-extrabold text-emerald-400 mt-2">892 (71.4%)</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Passed $\ge 70\%$ certification threshold
+              Passed ≥ 70% certification threshold
             </p>
           </Card>
 

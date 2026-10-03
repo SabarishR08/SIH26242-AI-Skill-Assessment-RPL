@@ -36,6 +36,20 @@ export default function VivaAssessmentPage() {
     grade: "EXCELLENT" | "ADEQUATE" | "NEEDS_IMPROVEMENT";
   } | null>(null);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
+
+  useEffect(() => {
+    let interval: any;
+    if (isRecording) {
+      setRecordingSeconds(0);
+      interval = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
 
   const qp: QualificationPack = QUALIFICATION_PACKS[selectedQpId] || QUALIFICATION_PACKS["auto-service-tech-l4"];
   const currentQuestion: VivaQuestion = qp.vivaQuestions[currentQuestionIndex] || qp.vivaQuestions[0];
@@ -202,12 +216,12 @@ export default function VivaAssessmentPage() {
           </div>
         </div>
 
-        {/* Trade Selection Tabs */}
+        {/* Trade Selection Tabs - Responsive 5-column grid */}
         <div>
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
-            Select NSQF Job Role for Candidate Viva:
+            Select NSQF Job Role for Candidate Viva (5 National QPs):
           </span>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {Object.values(QUALIFICATION_PACKS).map((pack) => {
               const isSelected = pack.id === selectedQpId;
               return (
@@ -219,7 +233,7 @@ export default function VivaAssessmentPage() {
                     setCandidateSpeech("");
                     setEvaluationResult(null);
                   }}
-                  className={`p-4 rounded-2xl border text-left transition-all ${
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
                     isSelected
                       ? "bg-orange-500/15 border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.15)] ring-1 ring-orange-500/30"
                       : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/15"
@@ -227,12 +241,12 @@ export default function VivaAssessmentPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono text-orange-400 font-bold">{pack.qpCode}</span>
-                    <Badge variant="outline" className="text-xs border-white/10 text-zinc-300">
-                      NSQF L{pack.nsqfLevel}
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/10 text-zinc-300">
+                      L{pack.nsqfLevel}
                     </Badge>
                   </div>
-                  <div className="text-sm font-bold text-white mt-1.5">{pack.title}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{pack.titleHindi}</div>
+                  <div className="text-xs font-bold text-white mt-1.5 line-clamp-1">{pack.title}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{pack.titleHindi}</div>
                 </button>
               );
             })}
@@ -272,25 +286,60 @@ export default function VivaAssessmentPage() {
           <CardContent className="space-y-6">
             {/* Candidate Voice Answering Console */}
             <div className="p-6 rounded-2xl bg-black/40 border border-white/10 flex flex-col items-center justify-center text-center gap-4">
-              <button
-                onClick={handleToggleRecord}
-                className={`relative flex items-center justify-center h-20 w-20 rounded-full transition-all duration-300 shadow-xl ${
-                  isRecording
-                    ? "bg-rose-600 text-white animate-pulse scale-110 shadow-rose-600/50"
-                    : "bg-orange-500 hover:bg-orange-600 text-white hover:scale-105 shadow-orange-500/30"
-                }`}
-              >
-                {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
-              </button>
-
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  {isRecording ? "Listening to your answer in vernacular..." : "Tap Microphone to Speak Your Answer"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  बोलायला सुरू करा (Speak freely in Hindi, Marathi, or English)
-                </p>
+              <div className="relative">
+                <button
+                  onClick={handleToggleRecord}
+                  className={`relative flex items-center justify-center h-20 w-20 rounded-full transition-all duration-300 shadow-xl ${
+                    isRecording
+                      ? "bg-rose-600 text-white animate-pulse scale-110 shadow-rose-600/50"
+                      : "bg-orange-500 hover:bg-orange-600 text-white hover:scale-105 shadow-orange-500/30"
+                  }`}
+                >
+                  {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+                </button>
+                {isRecording && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-500"></span>
+                  </span>
+                )}
               </div>
+
+              {/* Animated Sound Spectrum Waveform when recording */}
+              {isRecording ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex items-center gap-1.5 h-8">
+                    {[12, 24, 32, 16, 28, 36, 20, 32, 18, 26, 34, 14].map((h, idx) => (
+                      <span
+                        key={idx}
+                        className="w-1.5 rounded-full bg-gradient-to-t from-orange-500 to-rose-400 animate-pulse"
+                        style={{
+                          height: `${h}px`,
+                          animationDelay: `${idx * 80}ms`,
+                          animationDuration: "600ms"
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/40 text-[11px] font-mono font-bold">
+                      ● LIVE REC: 00:0{recordingSeconds}s
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      Transcribing Vernacular Voice via Indic ASR...
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Tap Microphone to Speak Your Answer
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    बोलायला सुरू करा (Speak freely in Hindi, Marathi, or English)
+                  </p>
+                </div>
+              )}
 
               {/* Transcribed Candidate Speech */}
               {candidateSpeech && (

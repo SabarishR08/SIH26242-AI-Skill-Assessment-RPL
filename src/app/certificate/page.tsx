@@ -26,6 +26,7 @@ export default function CertificatePage() {
   const [selectedQpId, setSelectedQpId] = useState<string>("auto-service-tech-l4");
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [verificationSuccess, setVerificationSuccess] = useState<boolean>(false);
+  const [showJsonLdModal, setShowJsonLdModal] = useState<boolean>(false);
 
   const qp: QualificationPack = QUALIFICATION_PACKS[selectedQpId] || QUALIFICATION_PACKS["auto-service-tech-l4"];
 
@@ -35,6 +36,45 @@ export default function CertificatePage() {
       setIsVerifying(false);
       setVerificationSuccess(true);
     }, 700);
+  };
+
+  const downloadJsonLd = () => {
+    const vcPayload = {
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://schema.org"
+      ],
+      "id": `urn:uuid:rpl-${qp.qpCode.toLowerCase().replace(/[^a-z0-9]/g, "-")}-2026`,
+      "type": ["VerifiableCredential", "NSQFSKillCertificate"],
+      "issuer": "did:web:msde.gov.in:rpl-authority",
+      "issuanceDate": new Date().toISOString(),
+      "credentialSubject": {
+        "id": "did:aadhaar:sha256-4819",
+        "name": "Sabarish R.",
+        "qualificationPack": qp.title,
+        "qpCode": qp.qpCode,
+        "nsqfLevel": qp.nsqfLevel,
+        "sectorSkillCouncil": qp.sectorSkillCouncil,
+        "practicalScore": "88%",
+        "oralVivaScore": "82%",
+        "assessmentStatus": "COMPETENT"
+      },
+      "proof": {
+        "type": "Ed25519Signature2020",
+        "created": new Date().toISOString(),
+        "verificationMethod": "did:web:msde.gov.in#key-1",
+        "proofPurpose": "assertionMethod",
+        "jws": "eyJhbGciOiJFZERTQSI...z841f"
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(vcPayload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rpl-certificate-${qp.qpCode.replace("/", "-")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -62,6 +102,14 @@ export default function CertificatePage() {
           <div className="flex items-center gap-3">
             <Button
               size="sm"
+              variant="outline"
+              onClick={downloadJsonLd}
+              className="border-white/10 text-zinc-300 hover:text-white text-xs font-medium h-9 px-3 rounded-xl"
+            >
+              Export JSON-LD VC
+            </Button>
+            <Button
+              size="sm"
               onClick={() => window.print()}
               className="bg-white text-black hover:bg-white/90 text-xs font-bold h-9 px-4 rounded-xl"
             >
@@ -70,12 +118,12 @@ export default function CertificatePage() {
           </div>
         </div>
 
-        {/* Trade Selection Tabs */}
+        {/* Trade Selection Tabs - Responsive 5-column grid */}
         <div>
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
-            Select Certified Trade Credential:
+            Select Certified Trade Credential (5 National QPs):
           </span>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {Object.values(QUALIFICATION_PACKS).map((pack) => {
               const isSelected = pack.id === selectedQpId;
               return (
@@ -85,7 +133,7 @@ export default function CertificatePage() {
                     setSelectedQpId(pack.id);
                     setVerificationSuccess(false);
                   }}
-                  className={`p-4 rounded-2xl border text-left transition-all ${
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
                     isSelected
                       ? "bg-emerald-500/15 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30"
                       : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/15"
@@ -93,12 +141,12 @@ export default function CertificatePage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono text-emerald-400 font-bold">{pack.qpCode}</span>
-                    <Badge variant="outline" className="text-xs border-white/10 text-zinc-300">
-                      NSQF L{pack.nsqfLevel}
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/10 text-zinc-300">
+                      L{pack.nsqfLevel}
                     </Badge>
                   </div>
-                  <div className="text-sm font-bold text-white mt-1.5">{pack.title}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{pack.titleHindi}</div>
+                  <div className="text-xs font-bold text-white mt-1.5 line-clamp-1">{pack.title}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{pack.titleHindi}</div>
                 </button>
               );
             })}
@@ -221,21 +269,56 @@ export default function CertificatePage() {
 
             {/* Simulated Live Employer Verification Modal */}
             {verificationSuccess && (
-              <div className="mt-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 animate-in fade-in duration-300">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                    <UserCheck className="h-5 w-5" />
+              <div className="mt-6 p-5 rounded-2xl bg-zinc-950/90 border border-emerald-500/40 space-y-4 animate-in fade-in duration-300 shadow-[0_0_25px_rgba(16,185,129,0.15)]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                      <UserCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        Employer Verification Passed (Live SIDH Registry)
+                      </h4>
+                      <p className="text-xs text-emerald-300">
+                        Ed25519 cryptographic signature authentic. Zero certificate forgery risk.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">Cryptographic Verification Passed!</h4>
-                    <p className="text-xs text-emerald-300">
-                      Signature verified against MSDE Public DID key `did:key:z6MkhaXgV...`. Candidate is 100% authentic with zero tamper flags.
-                    </p>
+                  <Badge className="bg-emerald-500 text-black font-extrabold text-xs px-3 py-1">
+                    ✓ 100% AUTHENTIC
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                    <span className="text-muted-foreground block text-[11px]">Candidate Identity:</span>
+                    <span className="font-bold text-white">Sabarish R.</span>
+                    <span className="text-emerald-400 block font-mono text-[10px]">Aadhaar e-KYC Verified</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                    <span className="text-muted-foreground block text-[11px]">Assessment Breakdown:</span>
+                    <span className="font-bold text-white">Hands-On 88% • Viva 82%</span>
+                    <span className="text-cyan-400 block font-mono text-[10px]">Overall: 86.2% Competent</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                    <span className="text-muted-foreground block text-[11px]">Employer Placement Action:</span>
+                    <span className="font-bold text-orange-400">Ready for Factory Hiring</span>
+                    <span className="text-zinc-400 block text-[10px]">Minimum Wage Upgrade Eligible</span>
                   </div>
                 </div>
-                <Badge className="bg-emerald-500 text-black font-bold text-xs">
-                  Authentic
-                </Badge>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    DID Issuer: did:web:msde.gov.in • Block Timestamp: {new Date().toLocaleTimeString()}
+                  </span>
+                  <Button
+                    size="sm"
+                    className="bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-bold h-8 px-4 rounded-xl shadow-md"
+                    onClick={() => alert("Candidate Sabarish R. marked for prioritized factory placement in MSDE Apprenticeship Portal!")}
+                  >
+                    🤝 Issue Direct Apprenticeship Offer
+                  </Button>
+                </div>
               </div>
             )}
           </div>

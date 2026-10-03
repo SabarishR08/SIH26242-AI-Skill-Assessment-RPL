@@ -26,6 +26,14 @@ export default function PracticalAssessmentPage() {
   const [flaggedPoints, setFlaggedPoints] = useState<Record<string, boolean>>({});
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
 
+  // Virtual Tool Simulator States
+  const [micrometerVal, setMicrometerVal] = useState<number>(24.52);
+  const [multimeterMode, setMultimeterMode] = useState<"DC_V" | "AC_V" | "CONT" | "MEG_MOHM">("AC_V");
+  const [multimeterProbe, setMultimeterProbe] = useState<"L1-N" | "L1-E" | "N-E">("L1-N");
+  const [isMultimeterTesting, setIsMultimeterTesting] = useState<boolean>(false);
+  const [weldAmps, setWeldAmps] = useState<number>(115);
+  const [isCaliperLocked, setIsCaliperLocked] = useState<boolean>(false);
+
   const qp: QualificationPack = QUALIFICATION_PACKS[selectedQpId] || QUALIFICATION_PACKS["auto-service-tech-l4"];
   const currentScenario: PracticalScenario = qp.practicalScenarios[selectedScenarioIndex] || qp.practicalScenarios[0];
 
@@ -44,6 +52,7 @@ export default function PracticalAssessmentPage() {
   const handleResetAudit = () => {
     setFlaggedPoints({});
     setIsSubmitted(false);
+    setIsCaliperLocked(false);
   };
 
   // Calculate score
@@ -78,7 +87,7 @@ export default function PracticalAssessmentPage() {
               <Wrench className="h-7 w-7 text-cyan-400" /> प्रात्यक्षिक कौशल्य मूल्यांकन (Visual Practical Challenge)
             </h1>
             <p className="text-sm text-muted-foreground/90 mt-1 max-w-2xl leading-relaxed">
-              Verify hands-on diagnostic competence without needing physical testing rigs. Candidates inspect component assemblies, identify critical defects, and specify corrective engineering actions.
+              Verify hands-on diagnostic competence without needing physical testing rigs. Candidates inspect component assemblies, simulate digital precision instruments, identify critical defects, and specify corrective engineering actions.
             </p>
           </div>
 
@@ -91,12 +100,12 @@ export default function PracticalAssessmentPage() {
           </div>
         </div>
 
-        {/* Trade Selection Tabs */}
+        {/* Trade Selection Tabs - Responsive 5-column grid */}
         <div>
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
-            Select Trade Scenario:
+            Select Trade Scenario (5 National QPs Available):
           </span>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {Object.values(QUALIFICATION_PACKS).map((pack) => {
               const isSelected = pack.id === selectedQpId;
               return (
@@ -107,7 +116,7 @@ export default function PracticalAssessmentPage() {
                     setSelectedScenarioIndex(0);
                     handleResetAudit();
                   }}
-                  className={`p-4 rounded-2xl border text-left transition-all ${
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
                     isSelected
                       ? "bg-cyan-500/15 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/30"
                       : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/15"
@@ -115,12 +124,12 @@ export default function PracticalAssessmentPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono text-cyan-400 font-bold">{pack.qpCode}</span>
-                    <Badge variant="outline" className="text-xs border-white/10 text-zinc-300">
-                      NSQF L{pack.nsqfLevel}
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/10 text-zinc-300">
+                      L{pack.nsqfLevel}
                     </Badge>
                   </div>
-                  <div className="text-sm font-bold text-white mt-1.5">{pack.title}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{pack.titleHindi}</div>
+                  <div className="text-xs font-bold text-white mt-1.5 line-clamp-1">{pack.title}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{pack.titleHindi}</div>
                 </button>
               );
             })}
@@ -157,6 +166,291 @@ export default function PracticalAssessmentPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
+              {/* Virtual Precision Tool Simulator Widget */}
+              <div className="rounded-2xl border border-cyan-500/30 bg-black/40 p-5 backdrop-blur-md shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-cyan-300">
+                      Virtual Instrument Simulation
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-cyan-500/30 text-cyan-400">
+                      Live Hands-On Telemetry
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    Calibration Standard: ISO/IEC 17025 Compliant
+                  </span>
+                </div>
+
+                {/* Instrument variant based on trade */}
+                {(selectedQpId === "auto-service-tech-l4" || selectedQpId === "cnc-operator-turning-l4") && (
+                  <div className="mt-4 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          Digital Vernier Micrometer (0.01mm Resolution)
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Inspect shaft outer diameter / rotor thickness against factory spec (24.50 mm ± 0.05 mm).
+                        </p>
+                      </div>
+
+                      {/* Digital LCD Readout */}
+                      <div className="px-5 py-2.5 rounded-xl bg-zinc-950 border border-cyan-500/40 text-center font-mono shadow-inner">
+                        <span className="text-2xl sm:text-3xl font-extrabold tracking-widest text-cyan-300">
+                          {micrometerVal.toFixed(2)}
+                        </span>
+                        <span className="text-xs text-cyan-500 font-bold ml-1.5">mm</span>
+                      </div>
+                    </div>
+
+                    {/* Micrometer Thimble Slider */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground font-mono">
+                        <span>23.80 mm (Undersized)</span>
+                        <span className="text-white font-bold">Target: 24.50 mm ± 0.05 mm</span>
+                        <span>25.20 mm (Oversized)</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="23.80"
+                        max="25.20"
+                        step="0.01"
+                        value={micrometerVal}
+                        onChange={(e) => {
+                          setMicrometerVal(parseFloat(e.target.value));
+                          setIsCaliperLocked(false);
+                        }}
+                        className="w-full h-2.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                      />
+                    </div>
+
+                    {/* Telemetry Status & Verification */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                      <div className="flex items-center gap-2">
+                        {micrometerVal >= 24.45 && micrometerVal <= 24.55 ? (
+                          <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-xs px-3 py-1 font-bold">
+                            ✓ WITHIN TOLERANCE (PASS - Nominal Spec Achieved)
+                          </Badge>
+                        ) : micrometerVal < 24.45 ? (
+                          <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/40 text-xs px-3 py-1 font-bold">
+                            ⚠ DEFECT: Undersized by {(24.50 - micrometerVal).toFixed(2)}mm (Excessive Friction Wear)
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs px-3 py-1 font-bold">
+                            ⚠ DEFECT: Runout / Thermal Expansion (+{(micrometerVal - 24.50).toFixed(2)}mm)
+                          </Badge>
+                        )}
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsCaliperLocked(true)}
+                        className={`text-xs h-8 border-cyan-500/30 ${
+                          isCaliperLocked ? "bg-cyan-500/20 text-cyan-300" : "text-zinc-300 hover:text-white"
+                        }`}
+                      >
+                        {isCaliperLocked ? "✓ Telemetry Locked to Audit" : "Lock & Record Telemetry"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {(selectedQpId === "solar-pv-installer-l4" || selectedQpId === "electrician-domestic-l4") && (
+                  <div className="mt-4 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          True-RMS Digital Multimeter & Insulation Tester
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Test AC distribution voltage, DC string polarity, and ground insulation resistance (IS 732).
+                        </p>
+                      </div>
+
+                      {/* Multimeter LCD Readout */}
+                      <div className="px-5 py-2.5 rounded-xl bg-zinc-950 border border-amber-500/40 text-center font-mono shadow-inner min-w-[160px]">
+                        <span className="text-2xl sm:text-3xl font-extrabold tracking-widest text-amber-300">
+                          {!isMultimeterTesting 
+                            ? "---.-" 
+                            : multimeterMode === "AC_V" 
+                            ? (multimeterProbe === "L1-N" ? "238.4" : multimeterProbe === "L1-E" ? "237.9" : "0.5")
+                            : multimeterMode === "DC_V"
+                            ? (multimeterProbe === "L1-N" ? "612.0" : "0.0")
+                            : multimeterMode === "CONT"
+                            ? (multimeterProbe === "L1-E" ? "0.04" : "O.L")
+                            : (multimeterProbe === "L1-E" ? "0.18" : ">999")}
+                        </span>
+                        <span className="text-xs text-amber-500 font-bold ml-1.5">
+                          {multimeterMode === "AC_V" ? "V AC" : multimeterMode === "DC_V" ? "V DC" : multimeterMode === "CONT" ? "Ω 🔊" : "MΩ"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Controls Grid: Mode & Probe */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                          Rotary Function Dial:
+                        </span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            onClick={() => { setMultimeterMode("AC_V"); setIsMultimeterTesting(false); }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              multimeterMode === "AC_V" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-zinc-900 border-white/5 text-zinc-400"
+                            }`}
+                          >
+                            AC Volts (240V~)
+                          </button>
+                          <button
+                            onClick={() => { setMultimeterMode("DC_V"); setIsMultimeterTesting(false); }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              multimeterMode === "DC_V" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-zinc-900 border-white/5 text-zinc-400"
+                            }`}
+                          >
+                            DC Solar (600V⎓)
+                          </button>
+                          <button
+                            onClick={() => { setMultimeterMode("CONT"); setIsMultimeterTesting(false); }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              multimeterMode === "CONT" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-zinc-900 border-white/5 text-zinc-400"
+                            }`}
+                          >
+                            Continuity (Ω)
+                          </button>
+                          <button
+                            onClick={() => { setMultimeterMode("MEG_MOHM"); setIsMultimeterTesting(false); }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              multimeterMode === "MEG_MOHM" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-zinc-900 border-white/5 text-zinc-400"
+                            }`}
+                          >
+                            Megger (500V MΩ)
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                          Probe Attachment Points:
+                        </span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <button
+                            onClick={() => { setMultimeterProbe("L1-N"); setIsMultimeterTesting(false); }}
+                            className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              multimeterProbe === "L1-N" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-zinc-900 border-white/5 text-zinc-400"
+                            }`}
+                          >
+                            Line - Neutral
+                          </button>
+                          <button
+                            onClick={() => { setMultimeterProbe("L1-E"); setIsMultimeterTesting(false); }}
+                            className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              multimeterProbe === "L1-E" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-zinc-900 border-white/5 text-zinc-400"
+                            }`}
+                          >
+                            Line - Earth
+                          </button>
+                          <button
+                            onClick={() => { setMultimeterProbe("N-E"); setIsMultimeterTesting(false); }}
+                            className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              multimeterProbe === "N-E" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-zinc-900 border-white/5 text-zinc-400"
+                            }`}
+                          >
+                            Neutral - Earth
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Measure Button & Interpretation */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                      <Button
+                        size="sm"
+                        onClick={() => setIsMultimeterTesting(true)}
+                        className="bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs h-8 px-4 rounded-xl"
+                      >
+                        ⚡ Trigger Test Probes
+                      </Button>
+
+                      {isMultimeterTesting && (
+                        <div className="text-xs">
+                          {multimeterMode === "MEG_MOHM" && multimeterProbe === "L1-E" ? (
+                            <span className="text-rose-400 font-bold flex items-center gap-1.5">
+                              ⚠ CRITICAL FAULT: Insulation resistance is 0.18 MΩ (&lt; 1.0 MΩ threshold). Severe ground fault danger!
+                            </span>
+                          ) : multimeterMode === "AC_V" && multimeterProbe === "L1-N" ? (
+                            <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                              ✓ HEALTHY: Nominal single-phase supply 238.4V within ±6% CEA regulations.
+                            </span>
+                          ) : (
+                            <span className="text-zinc-300">
+                              Diagnostic reading recorded. Proceed with inspection checklist below.
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {selectedQpId === "welder-mmaw-l3" && (
+                  <div className="mt-4 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          Arc Welding Heat Input & Root Penetration Simulator
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Adjust welding current (Amperes) for 3.15mm E6013 electrode on 6mm MS plate.
+                        </p>
+                      </div>
+
+                      <div className="px-5 py-2.5 rounded-xl bg-zinc-950 border border-orange-500/40 text-center font-mono shadow-inner">
+                        <span className="text-2xl sm:text-3xl font-extrabold tracking-widest text-orange-400">
+                          {weldAmps}
+                        </span>
+                        <span className="text-xs text-orange-500 font-bold ml-1.5">A ({(weldAmps * 0.0096).toFixed(2)} kJ/mm)</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground font-mono">
+                        <span>75A (Cold Arc - Lack of Fusion)</span>
+                        <span className="text-white font-bold">Optimal Window: 100A - 125A</span>
+                        <span>160A (Burn-Through & Spatter)</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="75"
+                        max="160"
+                        step="1"
+                        value={weldAmps}
+                        onChange={(e) => setWeldAmps(parseInt(e.target.value, 10))}
+                        className="w-full h-2.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-orange-400"
+                      />
+                    </div>
+
+                    <div className="pt-2">
+                      {weldAmps >= 100 && weldAmps <= 125 ? (
+                        <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-xs px-3 py-1 font-bold">
+                          ✓ SOUND WELD BEAD: Good penetration, even ripple spacing, zero undercut (ISO 5817 Level B).
+                        </Badge>
+                      ) : weldAmps < 100 ? (
+                        <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/40 text-xs px-3 py-1 font-bold">
+                          ⚠ DEFECT: Lack of root penetration and slag inclusions due to insufficient arc energy.
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/40 text-xs px-3 py-1 font-bold">
+                          ⚠ DEFECT: Severe undercut (&gt;0.8mm depth) and heavy spatter from excessive amperage.
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Inspection Points Checkpoints */}
               <div>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-3">
