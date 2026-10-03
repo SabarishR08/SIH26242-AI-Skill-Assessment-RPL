@@ -13,10 +13,13 @@ import {
   ArrowRight, 
   Sparkles, 
   ShieldCheck, 
-  HelpCircle,
-  Eye,
-  Check,
-  RotateCcw
+  HelpCircle, 
+  Eye, 
+  Check, 
+  RotateCcw,
+  Camera,
+  Scan,
+  ShieldAlert
 } from "lucide-react";
 import { QUALIFICATION_PACKS, QualificationPack, PracticalScenario } from "@/lib/rpl/qualification-packs";
 
@@ -33,6 +36,25 @@ export default function PracticalAssessmentPage() {
   const [isMultimeterTesting, setIsMultimeterTesting] = useState<boolean>(false);
   const [weldAmps, setWeldAmps] = useState<number>(115);
   const [isCaliperLocked, setIsCaliperLocked] = useState<boolean>(false);
+
+  // AI Computer Vision PPE Scanner States
+  const [isPpeScanning, setIsPpeScanning] = useState<boolean>(false);
+  const [ppeAuditDone, setPpeAuditDone] = useState<boolean>(true);
+  const [ppeItems, setPpeItems] = useState<{ label: string; confidence: number; ok: boolean }[]>([
+    { label: "BIS Certified Industrial Hard Hat (Helmet)", confidence: 98.4, ok: true },
+    { label: "Polycarbonate Safety Eye Goggles (ANSI Z87.1)", confidence: 96.7, ok: true },
+    { label: "Heat / High-Voltage Rated Insulated Gloves", confidence: 95.1, ok: true },
+    { label: "High-Visibility Reflective Safety Vest", confidence: 97.2, ok: true },
+    { label: "Steel-Toe Oil-Resistant Safety Shoes", confidence: 93.8, ok: true },
+  ]);
+
+  const handleTriggerPpeScan = () => {
+    setIsPpeScanning(true);
+    setTimeout(() => {
+      setIsPpeScanning(false);
+      setPpeAuditDone(true);
+    }, 1200);
+  };
 
   const qp: QualificationPack = QUALIFICATION_PACKS[selectedQpId] || QUALIFICATION_PACKS["auto-service-tech-l4"];
   const currentScenario: PracticalScenario = qp.practicalScenarios[selectedScenarioIndex] || qp.practicalScenarios[0];
@@ -449,6 +471,85 @@ export default function PracticalAssessmentPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* AI Computer Vision Safety & PPE Compliance Inspector */}
+              <div className="rounded-2xl border border-emerald-500/30 bg-black/40 p-5 backdrop-blur-md shadow-[0_0_20px_rgba(16,185,129,0.08)] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <Camera className="h-4 w-4 text-emerald-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+                      Edge AI Computer Vision PPE & Safety Audit
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 font-mono">
+                      YOLOv8-Workshop Model (30 FPS)
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    Mandatory Standard: NSQF Core Safety NOS (ASC/N9801 & CSC/N1335)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+                  {/* Visual Viewfinder Simulation */}
+                  <div className="lg:col-span-5 rounded-xl border border-white/10 bg-zinc-950 p-4 relative overflow-hidden flex flex-col items-center justify-center min-h-[170px] text-center">
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+                      <span className="text-[10px] font-mono font-bold text-zinc-300">CAM_01 • SHOP_FLOOR</span>
+                    </div>
+
+                    {isPpeScanning ? (
+                      <div className="space-y-2 py-4 animate-in fade-in">
+                        <Scan className="h-10 w-10 text-emerald-400 animate-spin mx-auto" />
+                        <p className="text-xs text-emerald-300 font-bold">Scanning Candidate Safety Gear...</p>
+                        <p className="text-[11px] text-muted-foreground">Running Pose & Bounding-Box Detection</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 py-2">
+                        <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
+                          <ShieldCheck className="h-7 w-7" />
+                        </div>
+                        <p className="text-xs font-bold text-white">Candidate PPE Verified Active</p>
+                        <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full inline-block">
+                          Safety Audit: 15/15 Marks Awarded
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="absolute bottom-2 right-2 text-[10px] text-zinc-500 font-mono">
+                      Latency: 28ms (Edge Device)
+                    </div>
+                  </div>
+
+                  {/* Detected PPE Item Matrix */}
+                  <div className="lg:col-span-7 space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {ppeItems.map((item, idx) => (
+                        <div key={idx} className="p-2 rounded-lg bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
+                          <span className="text-zinc-300 text-[11px] truncate max-w-[190px]">{item.label}</span>
+                          <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px] font-mono font-bold shrink-0">
+                            ✓ {item.confidence}%
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs text-zinc-400">
+                        Zero safety infractions detected. Candidate cleared for mechanical assessment.
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleTriggerPpeScan}
+                        disabled={isPpeScanning}
+                        className="text-xs h-7 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+                      >
+                        {isPpeScanning ? "Scanning..." : "Re-Scan Camera Feed"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Inspection Points Checkpoints */}

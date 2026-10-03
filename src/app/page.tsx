@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { Button } from "@/components/ui/button";
@@ -13,10 +16,30 @@ import {
   FileCheck2, 
   CheckCircle2, 
   Cpu, 
-  Users 
+  Users,
+  TrendingUp,
+  WifiOff,
+  Check
 } from "lucide-react";
 
 export default function LandingPage() {
+  const [dailyInformalRate, setDailyInformalRate] = useState<number>(450);
+  const [selectedCalcTrade, setSelectedCalcTrade] = useState<string>("auto");
+
+  // Legal NSQF Level 4 Minimum Wage Rates (under Central Sphere & Scheduled Industries)
+  const nsqfRates: Record<string, { title: string; dailyLegalRate: number; monthlyApprentice: number }> = {
+    auto: { title: "Automotive Service Technician (Level 4)", dailyLegalRate: 865, monthlyApprentice: 19500 },
+    cnc: { title: "CNC Turning Specialist (Level 4)", dailyLegalRate: 890, monthlyApprentice: 21000 },
+    solar: { title: "Solar PV Project Technician (Level 4)", dailyLegalRate: 875, monthlyApprentice: 19000 },
+    electrician: { title: "Domestic Electrician (Level 4)", dailyLegalRate: 855, monthlyApprentice: 18500 },
+    welder: { title: "Welder MMAW (Level 3)", dailyLegalRate: 810, monthlyApprentice: 17500 },
+  };
+
+  const currentTradeConfig = nsqfRates[selectedCalcTrade] || nsqfRates.auto;
+  const annualInformal = dailyInformalRate * 300; // 300 working days
+  const annualCertified = currentTradeConfig.dailyLegalRate * 300;
+  const annualGain = annualCertified - annualInformal;
+  const percentGain = Math.round((annualGain / annualInformal) * 100);
   return (
     <div className="flex flex-col min-h-screen bg-black text-foreground overflow-x-hidden selection:bg-orange-500/30 selection:text-orange-200">
       <Script
@@ -264,6 +287,136 @@ export default function LandingPage() {
                 </div>
               </div>
             </Link>
+          </div>
+
+          {/* Interactive Candidate Economic Uplift & Wage Ladder Calculator */}
+          <div className="mt-20 p-8 sm:p-10 rounded-3xl bg-gradient-to-b from-zinc-900/90 via-black to-zinc-950 border border-orange-500/30 relative overflow-hidden shadow-[0_0_50px_rgba(249,115,22,0.1)]">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-xs font-bold px-3 py-1">
+                    Statutory Economic Impact Model
+                  </Badge>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    Minimum Wages Act 1948 & NAPS Scheme Linkage
+                  </span>
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  The Informal-to-Formal Wage Ladder Calculator
+                </h3>
+                <p className="text-sm text-zinc-300 mt-1 max-w-2xl leading-relaxed">
+                  See how an NSQF Level 3/4 RPL certification elevates unorganized craftsmen from sub-minimum informal wages into legally protected, skilled industrial remuneration.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-2 rounded-xl">
+                <WifiOff className="h-4 w-4 text-cyan-400" />
+                <span className="text-xs text-zinc-300 font-mono">
+                  Offline PWA Ready: Runs with zero rural internet
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
+              {/* Left Column: Trade & Wage Controls */}
+              <div className="lg:col-span-5 space-y-6 text-left">
+                <div>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
+                    Select Informal Craftsman Trade:
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(nsqfRates).map(([key, item]) => (
+                      <button
+                        key={key}
+                        onClick={() => setSelectedCalcTrade(key)}
+                        className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition-all ${
+                          selectedCalcTrade === key
+                            ? "bg-orange-500/20 border-orange-500 text-white shadow-sm"
+                            : "bg-white/[0.02] border-white/5 text-zinc-400 hover:border-white/15 hover:text-zinc-200"
+                        }`}
+                      >
+                        <span className="line-clamp-1">{item.title.split("(")[0]}</span>
+                        <span className="text-[10px] text-orange-400 font-mono block mt-0.5">₹{item.dailyLegalRate}/day standard</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground font-medium">Current Informal Daily Pay:</span>
+                    <span className="font-extrabold text-white text-base font-mono">₹{dailyInformalRate} / day</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="300"
+                    max="650"
+                    step="25"
+                    value={dailyInformalRate}
+                    onChange={(e) => setDailyInformalRate(parseInt(e.target.value, 10))}
+                    className="w-full h-2.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                  />
+                  <div className="flex justify-between text-[11px] text-muted-foreground font-mono">
+                    <span>₹300 (Helper)</span>
+                    <span>₹450 (Informal Ustad)</span>
+                    <span>₹650 (Senior Tech)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Calculated Impact Breakdown */}
+              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-5 rounded-2xl bg-zinc-950/80 border border-white/10 flex flex-col justify-between">
+                  <div>
+                    <span className="text-xs uppercase font-semibold text-muted-foreground">Annual Informal Income</span>
+                    <div className="text-2xl sm:text-3xl font-black text-zinc-400 font-mono mt-1">
+                      ₹{annualInformal.toLocaleString("en-IN")}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Based on ~300 unorganized working days per annum with zero benefits.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-white/5">
+                    <span className="text-xs text-rose-400 font-medium">Unprotected under labour codes</span>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-gradient-to-b from-emerald-950/40 to-zinc-950 border border-emerald-500/30 flex flex-col justify-between shadow-lg shadow-emerald-500/5">
+                  <div>
+                    <span className="text-xs uppercase font-semibold text-emerald-400">Post-RPL Certified Income</span>
+                    <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono mt-1">
+                      ₹{annualCertified.toLocaleString("en-IN")}
+                    </div>
+                    <p className="text-xs text-emerald-200/80 mt-1">
+                      Legally enforced under Scheduled Employment minimum wage rates.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-emerald-500/20">
+                    <span className="text-xs font-bold text-emerald-300 flex items-center gap-1">
+                      <TrendingUp className="h-3.5 w-3.5" /> +₹{annualGain.toLocaleString("en-IN")} (+{percentGain}%) Surge
+                    </span>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2 p-4 rounded-xl bg-white/[0.02] border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1 text-center sm:text-left">
+                    <span className="text-xs font-bold text-white flex items-center justify-center sm:justify-start gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Statutory Industry Protections Unlocked:
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      ESIC Medical Insurance • EPFO Gratuity & Pension • Direct NAPS Paid Apprenticeship ({currentTradeConfig.monthlyApprentice.toLocaleString("en-IN")}/mo)
+                    </p>
+                  </div>
+                  <Button asChild size="sm" className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold h-9 px-5 rounded-xl shrink-0 shadow-md">
+                    <Link href="/onboarding">
+                      Assess & Certify Now <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>

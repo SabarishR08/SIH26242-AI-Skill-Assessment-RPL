@@ -27,6 +27,7 @@ export default function CertificatePage() {
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [verificationSuccess, setVerificationSuccess] = useState<boolean>(false);
   const [showJsonLdModal, setShowJsonLdModal] = useState<boolean>(false);
+  const [showOfferLetter, setShowOfferLetter] = useState<boolean>(false);
 
   const qp: QualificationPack = QUALIFICATION_PACKS[selectedQpId] || QUALIFICATION_PACKS["auto-service-tech-l4"];
 
@@ -314,7 +315,7 @@ export default function CertificatePage() {
                   <Button
                     size="sm"
                     className="bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-bold h-8 px-4 rounded-xl shadow-md"
-                    onClick={() => alert("Candidate Sabarish R. marked for prioritized factory placement in MSDE Apprenticeship Portal!")}
+                    onClick={() => setShowOfferLetter(true)}
                   >
                     🤝 Issue Direct Apprenticeship Offer
                   </Button>
@@ -323,6 +324,85 @@ export default function CertificatePage() {
             )}
           </div>
         </div>
+
+        {/* Official MSDE-NAPS Apprenticeship Letter of Intent Modal */}
+        {showOfferLetter && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-2xl rounded-3xl bg-zinc-950 border border-emerald-500/40 p-6 sm:p-8 space-y-6 relative shadow-2xl shadow-emerald-500/20">
+              <div className="flex items-start justify-between border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                    <Building2 className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-orange-400 block font-mono">
+                      National Apprenticeship Promotion Scheme (NAPS)
+                    </span>
+                    <h3 className="text-lg sm:text-xl font-black text-white">
+                      Provisional Letter of Intent & Apprenticeship Placement
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowOfferLetter(false)}
+                  className="text-zinc-400 hover:text-white text-lg font-bold px-2 py-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3 text-xs leading-relaxed text-zinc-300">
+                <p>
+                  To: <strong>Sabarish R.</strong> (Aadhaar Ref: <code>XXXX-XXXX-4819</code>)
+                </p>
+                <p>
+                  We are pleased to issue this provisional offer of apprenticeship under the MSDE National Apprenticeship Promotion Scheme following your verifiable Recognition of Prior Learning (RPL) assessment clearance in <strong>{qp.title} (NSQF Level {qp.nsqfLevel})</strong> with overall verified competence of <strong>86.2%</strong>.
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 py-2 border-y border-white/5 font-mono text-zinc-200">
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Contracted Role:</span>
+                    <span>Senior Maintenance Apprentice</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Monthly Mandated Stipend:</span>
+                    <span className="text-emerald-400 font-bold">₹19,500 / month</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Statutory Benefits:</span>
+                    <span>ESIC Medical + Accidental Cover</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Verification Anchor:</span>
+                    <span className="text-cyan-400">W3C DID Verified (SIDH)</span>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-muted-foreground">
+                  *This document is cryptographically anchored to your tamper-proof RPL verifiable credential and recognized by over 12,000 enrolled manufacturing employers nationwide.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowOfferLetter(false)}
+                  className="border-white/10 text-xs h-9 px-4 rounded-xl"
+                >
+                  Close Document
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => window.print()}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-bold h-9 px-5 rounded-xl shadow-lg"
+                >
+                  Print / Download Offer Letter
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );

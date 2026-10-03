@@ -234,6 +234,113 @@ export default function AdminCockpitPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* National Geographic Clusters & Anti-Fraud Forensic Insights */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* State-Wise Cluster Throughput */}
+          <Card className="glass-card border-white/10 p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-orange-400" /> State Industrial Cluster Throughput
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  PMKVY 4.0 RPL candidate distribution across top manufacturing hubs.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-400 font-mono">
+                5 States Active
+              </Badge>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { state: "Maharashtra (Pune - Chakan Auto Hub)", count: 412, passRate: 78.4, color: "bg-orange-500" },
+                { state: "Tamil Nadu (Coimbatore - CGSC Machining)", count: 328, passRate: 84.1, color: "bg-emerald-500" },
+                { state: "Uttar Pradesh (Lucknow / Kanpur Industrial)", count: 264, passRate: 71.2, color: "bg-amber-500" },
+                { state: "Rajasthan (Jaipur / Solar Green Energy)", count: 142, passRate: 69.8, color: "bg-cyan-500" },
+                { state: "Gujarat (Sanand / Heavy Fabrication)", count: 102, passRate: 82.3, color: "bg-purple-500" },
+              ].map((item, idx) => (
+                <div key={idx} className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-semibold text-zinc-200">{item.state}</span>
+                    <span className="font-mono text-muted-foreground">{item.count} candidates • {item.passRate}% pass</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${item.color} rounded-full`}
+                      style={{ width: `${item.passRate}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Real-Time Anti-Fraud & Biometric Integrity Monitor */}
+          <Card className="glass-card border-white/10 p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" /> AI Biometric & Anti-Impersonation Log
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Automated Edge AI defenses protecting national certificate integrity.
+                </p>
+              </div>
+              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-xs font-mono font-bold">
+                99.8% Zero Fraud Clean
+              </Badge>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-start gap-3">
+                <div className="h-7 w-7 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                  <UserX className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-rose-300">Proxy Voice Detected (Intercepted)</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">01-Oct 14:22</span>
+                  </div>
+                  <p className="text-zinc-300 text-[11px] mt-0.5">
+                    Candidate #RPL-106 audio stream had 2 simultaneous speakers. Oral viva automatically quarantined for human review.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-start gap-3">
+                <div className="h-7 w-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-emerald-300">W3C DID Batch Cryptographically Sealed</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">Today 09:00</span>
+                  </div>
+                  <p className="text-zinc-300 text-[11px] mt-0.5">
+                    Batch #MH-2026-08 (148 certificates) signed with Ed25519 root authority and synced with Skill India Digital Hub (SIDH).
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-start gap-3">
+                <div className="h-7 w-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
+                  <Building2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-cyan-300">Apprenticeship Hiring Pipeline Active</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">Live Sync</span>
+                  </div>
+                  <p className="text-zinc-300 text-[11px] mt-0.5">
+                    84.3% of certified RPL candidates received automated OEM apprenticeship interviews within 14 calendar days.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
     </AppShell>
   );
