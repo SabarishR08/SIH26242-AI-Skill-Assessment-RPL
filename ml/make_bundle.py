@@ -1,6 +1,10 @@
 #!/usr/bin/env python
-"""Build the self-contained zip that goes to the training machine.
+"""Build the self-contained zip bundle for training machine deployment.
 
+Usage:
+    python ml/make_bundle.py [output_dir]
+
+Example:
     python ml/make_bundle.py            # -> dist/pathfinder-ml-bundle-<date>.zip
 
 Copies the current data/ catalogue into ml/data, stamps BUNDLE_INFO.json
