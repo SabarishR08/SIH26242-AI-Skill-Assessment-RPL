@@ -30,19 +30,62 @@ DATA_FILES = ["skill_graph.json", "courses.json", "course_skill_mapping.json", "
 
 
 def git_sha() -> str | None:
+    """Retrieve the current short git SHA for the repository.
+
+    Returns:
+        str | None: Short commit hash if git repository is present, else None.
+    """
     try:
         return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, text=True).strip()
     except Exception:  # noqa: BLE001
         return None
 
 
+def create_bundle_info(stamp: datetime) -> dict[str, str | list[str] | None]:
+    """Generate metadata dictionary for BUNDLE_INFO.json.
+
+    Args:
+        stamp: Creation timestamp in UTC.
+
+    Returns:
+        Dictionary containing creation timestamp, git SHA, and bundled data file list.
+    """
+    return {
+        "created_at": stamp.isoformat(timespec="seconds"),
+        "git_sha": git_sha(),
+        "data_files": DATA_FILES,
+    }
+
+
+def should_exclude(rel: Path, p: Path) -> bool:
+    """Determine whether a file path should be excluded from the zip bundle.
+
+    Args:
+        rel: Relative path of the target file from ML_ROOT.
+        p: Absolute path of the target file.
+
+    Returns:
+        bool: True if path matches exclusion directories, suffixes, or is not a file.
+    """
+    if any(part in EXCLUDE_DIRS for part in rel.parts) or not p.is_file():
+        return True
+    if p.suffix.lower() in EXCLUDE_SUFFIXES:
+        return True
+    return False
+
+
 def main() -> int:
+    """Copy data files, generate BUNDLE_INFO.json, and package ml/ directory into a zip bundle.
+
+    Returns:
+        int: Exit status code (0 for success).
+    """
     (ML_ROOT / "data").mkdir(exist_ok=True)
     for name in DATA_FILES:
         shutil.copy2(REPO / "data" / name, ML_ROOT / "data" / name)
 
     stamp = datetime.now(timezone.utc)
-    info = {"created_at": stamp.isoformat(timespec="seconds"), "git_sha": git_sha(), "data_files": DATA_FILES}
+    info = create_bundle_info(stamp)
     (ML_ROOT / "BUNDLE_INFO.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
 
     out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO / "dist"
@@ -51,9 +94,7 @@ def main() -> int:
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for p in ML_ROOT.rglob("*"):
             rel = p.relative_to(ML_ROOT)
-            if any(part in EXCLUDE_DIRS for part in rel.parts) or not p.is_file():
-                continue
-            if p.suffix.lower() in EXCLUDE_SUFFIXES:
+            if should_exclude(rel, p):
                 continue
             zf.write(p, Path("pathfinder-ml") / rel)
     print(f"bundle: {zip_path} ({zip_path.stat().st_size / 2**20:.1f} MB)")
