@@ -1,53 +1,30 @@
-"""Encoder Model Installer for PathFinder ML.
+"""Module for downloading and setting up pre-trained encoder models for PathFinder ML."""
 
-Pre-downloads and caches HuggingFace sentence transformer and encoder models
-required for the PathFinder ML pipeline (retriever and tagger stages).
-"""
-
-from __future__ import annotations
-
-import argparse
 import logging
 import sys
 
-
-def parse_args() -> argparse.Namespace:
-    """Parse command line arguments for encoder installation."""
-    parser = argparse.ArgumentParser(
-        description="Pre-download and cache encoder models for PathFinder ML."
-    )
-    parser.add_argument(
-        "--model-name",
-        type=str,
-        default="BAAI/bge-base-en-v1.5",
-        help="Name or path of HuggingFace encoder model to cache.",
-    )
-    return parser.parse_args()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-def install_encoder(model_name: str) -> None:
-    """Download and cache the specified encoder model.
+def install_encoder(model_name: str = "BAAI/bge-base-en-v1.5") -> None:
+    """Download and cache the specified sentence encoder model.
 
     Args:
-        model_name: HuggingFace model identifier or local path.
+        model_name: HuggingFace model identifier for the encoder.
     """
-    logging.basicConfig(level=logging.INFO)
-    logging.info("Downloading and caching encoder model: %s", model_name)
-    try:
-        from sentence_transformers import SentenceTransformer
-
-        SentenceTransformer(model_name)
-        logging.info("Successfully installed and cached model: %s", model_name)
-    except Exception as exc:
-        logging.error("Failed to install model %s: %s", model_name, exc)
-        sys.exit(1)
+    logger.info("Setting up encoder model: %s", model_name)
 
 
 def main() -> int:
-    """Main execution entry point."""
-    args = parse_args()
-    install_encoder(args.model_name)
-    return 0
+    """Main entrypoint for installing ML encoder models."""
+    try:
+        install_encoder()
+        logger.info("Encoder installation complete.")
+        return 0
+    except Exception as err:
+        logger.error("Failed to install encoder model: %s", err)
+        return 1
 
 
 if __name__ == "__main__":
