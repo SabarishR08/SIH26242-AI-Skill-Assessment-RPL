@@ -62,6 +62,20 @@ Run Playwright E2E tests:
 npx playwright test
 ```
 
+### Machine‑Learning Scripts (Optional)
+If you are working on the ML pipeline located in `ml/`:
+1. Install Python dependencies:
+   ```bash
+   cd ml
+   pip install -r requirements.txt
+   ```
+2. Run the data collection or model scripts as described in `ml/README.md`.
+3. To execute the full pipeline locally:
+   ```bash
+   ./ml/run.sh
+   ```
+4. Ensure any added Python code passes linting (`flake8`) and unit tests (if applicable).
+
 ## Pull Request Workflow
 
 1. Create a topic branch off `main` (e.g., `feature/description` or `fix/description`).
