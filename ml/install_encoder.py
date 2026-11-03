@@ -1,4 +1,11 @@
-"""Module for downloading and setting up pre-trained encoder models for PathFinder ML."""
+"""Module for downloading, validating, and caching pre-trained encoder models.
+
+Provides utilities for sentence transformer and HuggingFace encoder model
+installation used within the PathFinder ML pipeline for AI Skill Assessment RPL.
+
+Usage:
+    python ml/install_encoder.py
+"""
 
 from __future__ import annotations
 
