@@ -1,4 +1,8 @@
-"""Module for downloading and setting up pre-trained encoder models for PathFinder ML."""
+"""Module for downloading and setting up pre-trained encoder models for PathFinder ML.
+
+Provides utility functions to validate and download pre-trained sentence encoder models
+(e.g., BAAI/bge-base-en-v1.5) for local caching in the PathFinder ML pipeline.
+"""
 
 from __future__ import annotations
 
