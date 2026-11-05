@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from pathlib import Path
 from typing import Optional
 
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +27,31 @@ def validate_model_name(model_name: str) -> bool:
     return bool(model_name and isinstance(model_name, str) and model_name.strip())
 
 
+def is_valid_cache_dir(cache_dir: Optional[str | Path]) -> bool:
+    """Validate whether the given cache directory parameter is a valid path representation.
+
+    Args:
+        cache_dir (Optional[str | Path]): Directory path to check for caching models.
+
+    Returns:
+        bool: True if cache_dir is None or a non-empty path, False otherwise.
+    """
+    if cache_dir is None:
+        return True
+    if isinstance(cache_dir, (str, Path)):
+        return bool(str(cache_dir).strip())
+    return False
+
+
+def get_default_model_name() -> str:
+    """Return the default pre-trained sentence encoder model identifier.
+
+    Returns:
+        str: HuggingFace model identifier for the default sentence encoder.
+    """
+    return "BAAI/bge-base-en-v1.5"
+
+
 def install_encoder(model_name: str = "BAAI/bge-base-en-v1.5", cache_dir: Optional[str] = None) -> bool:
     """Download and cache the specified sentence encoder model.
 
@@ -40,6 +66,10 @@ def install_encoder(model_name: str = "BAAI/bge-base-en-v1.5", cache_dir: Option
         logger.error("Invalid model name provided: %s", model_name)
         return False
 
+    if not is_valid_cache_dir(cache_dir):
+        logger.error("Invalid cache directory provided: %s", cache_dir)
+        return False
+
     logger.info("Setting up encoder model: %s (cache_dir=%s)", model_name, cache_dir)
     return True
 
@@ -51,7 +81,7 @@ def main() -> int:
         int: Exit status code (0 for success, 1 for failure).
     """
     try:
-        success = install_encoder()
+        success = install_encoder(model_name=get_default_model_name())
         if success:
             logger.info("Encoder installation complete.")
             return 0
