@@ -1,94 +1,40 @@
-"""Module for downloading and setting up pre-trained encoder models for PathFinder ML.
+"""Encoder model installer module for PathFinder ML.
 
-Provides utility functions to validate and download pre-trained sentence encoder models
-(e.g., BAAI/bge-base-en-v1.5) for local caching in the PathFinder ML pipeline.
+Downloads and caches pre-trained HuggingFace sentence transformer models
+required for offline vector search and RPL skill assessment pipelines.
 """
-
 from __future__ import annotations
 
-import logging
+import argparse
 import sys
-from pathlib import Path
-from typing import Optional
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
-def validate_model_name(model_name: str) -> bool:
-    """Validate whether the provided model name format is non-empty and well-formed.
+def download_encoder(model_name: str = "BAAI/bge-base-en-v1.5") -> None:
+    """Download and cache the specified sentence transformer encoder model.
 
     Args:
-        model_name (str): HuggingFace model identifier or path to validate.
-
-    Returns:
-        bool: True if model_name is a valid non-empty string, False otherwise.
+        model_name: HuggingFace model identifier.
     """
-    return bool(model_name and isinstance(model_name, str) and model_name.strip())
-
-
-def is_valid_cache_dir(cache_dir: Optional[str | Path]) -> bool:
-    """Validate whether the given cache directory parameter is a valid path representation.
-
-    Args:
-        cache_dir (Optional[str | Path]): Directory path to check for caching models.
-
-    Returns:
-        bool: True if cache_dir is None or a non-empty path, False otherwise.
-    """
-    if cache_dir is None:
-        return True
-    if isinstance(cache_dir, (str, Path)):
-        return bool(str(cache_dir).strip())
-    return False
-
-
-def get_default_model_name() -> str:
-    """Return the default pre-trained sentence encoder model identifier.
-
-    Returns:
-        str: HuggingFace model identifier for the default sentence encoder.
-    """
-    return "BAAI/bge-base-en-v1.5"
-
-
-def install_encoder(model_name: str = "BAAI/bge-base-en-v1.5", cache_dir: Optional[str] = None) -> bool:
-    """Download and cache the specified sentence encoder model.
-
-    Args:
-        model_name (str): HuggingFace model identifier for the encoder. Defaults to "BAAI/bge-base-en-v1.5".
-        cache_dir (Optional[str]): Optional local cache directory path. Defaults to None.
-
-    Returns:
-        bool: True if installation and caching completed successfully, False otherwise.
-    """
-    if not validate_model_name(model_name):
-        logger.error("Invalid model name provided: %s", model_name)
-        return False
-
-    if not is_valid_cache_dir(cache_dir):
-        logger.error("Invalid cache directory provided: %s", cache_dir)
-        return False
-
-    logger.info("Setting up encoder model: %s (cache_dir=%s)", model_name, cache_dir)
-    return True
+    try:
+        from sentence_transformers import SentenceTransformer
+        print(f"Downloading/verifying sentence transformer model: {model_name}")
+        SentenceTransformer(model_name)
+        print(f"Successfully cached model: {model_name}")
+    except ImportError:
+        print("sentence_transformers package is not installed. Install requirements first.")
+        sys.exit(1)
+    except Exception as exc:
+        print(f"Failed to download model {model_name}: {exc}")
+        sys.exit(1)
 
 
 def main() -> int:
-    """Main entrypoint for installing ML encoder models.
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", default="BAAI/bge-base-en-v1.5", help="Model name to download")
+    args = parser.parse_args()
 
-    Returns:
-        int: Exit status code (0 for success, 1 for failure).
-    """
-    try:
-        success = install_encoder(model_name=get_default_model_name())
-        if success:
-            logger.info("Encoder installation complete.")
-            return 0
-        return 1
-    except Exception as err:
-        logger.error("Failed to install encoder model: %s", err)
-        return 1
+    download_encoder(args.model)
+    return 0
 
 
 if __name__ == "__main__":
