@@ -1,40 +1,48 @@
-"""Encoder model installer module for PathFinder ML.
+"""Pre-download and cache HuggingFace transformer encoder models for PathFinder ML.
 
-Downloads and caches pre-trained HuggingFace sentence transformer models
-required for offline vector search and RPL skill assessment pipelines.
+Downloads tokenizer and model weights for embedding models (e.g. BAAI/bge-base-en-v1.5)
+to prepare the local environment for training and inference.
 """
+
 from __future__ import annotations
 
 import argparse
 import sys
+from transformers import AutoModel, AutoTokenizer
+
+DEFAULT_MODEL = "BAAI/bge-base-en-v1.5"
 
 
-def download_encoder(model_name: str = "BAAI/bge-base-en-v1.5") -> None:
-    """Download and cache the specified sentence transformer encoder model.
+def download_encoder(model_name: str = DEFAULT_MODEL) -> None:
+    """Download and cache HuggingFace model and tokenizer.
 
     Args:
-        model_name: HuggingFace model identifier.
+        model_name: HuggingFace hub model repository ID.
     """
-    try:
-        from sentence_transformers import SentenceTransformer
-        print(f"Downloading/verifying sentence transformer model: {model_name}")
-        SentenceTransformer(model_name)
-        print(f"Successfully cached model: {model_name}")
-    except ImportError:
-        print("sentence_transformers package is not installed. Install requirements first.")
-        sys.exit(1)
-    except Exception as exc:
-        print(f"Failed to download model {model_name}: {exc}")
-        sys.exit(1)
+    print(f"Pre-downloading tokenizer and model for: {model_name}")
+    AutoTokenizer.from_pretrained(model_name)
+    AutoModel.from_pretrained(model_name)
+    print(f"Successfully downloaded and cached: {model_name}")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default="BAAI/bge-base-en-v1.5", help="Model name to download")
+    """CLI entry point for downloading encoder models."""
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL,
+        help=f"HuggingFace model ID to download (default: {DEFAULT_MODEL})",
+    )
     args = parser.parse_args()
-
-    download_encoder(args.model)
-    return 0
+    try:
+        download_encoder(args.model)
+        return 0
+    except Exception as exc:
+        print(f"Failed to download model '{args.model}': {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
