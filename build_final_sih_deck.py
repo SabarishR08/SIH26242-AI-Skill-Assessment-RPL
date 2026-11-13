@@ -3,15 +3,32 @@ import pptx
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 
-src_template = r"E:\Downloads\Copy of SIH26134-167778-PERCEPTRON.pptx"
-dst_pptx_1 = r"E:\Downloads\01 Hackathons & Events\SIH_PS2\SIH26242-PERCEPTRON-RPL-AI.pptx"
-dst_pptx_2 = r"E:\Downloads\01 Hackathons & Events\SIH_PS2\pathfinder-rpl\SIH26242-PERCEPTRON-RPL-AI.pptx"
+import sys
+import argparse
+from pathlib import Path
 
-img_slide2 = r"E:\Downloads\01 Hackathons & Events\SIH_PS2\docs\deck_assets\slide2_multimodal_ui.jpg"
-img_slide3 = r"E:\Downloads\01 Hackathons & Events\SIH_PS2\docs\deck_assets\slide3_tech_flowchart.jpg"
-img_slide5 = r"E:\Downloads\01 Hackathons & Events\SIH_PS2\docs\deck_assets\slide5_socio_economic_impact.jpg"
+REPO_ROOT = Path(__file__).resolve().parent
+DEFAULT_TEMPLATE = REPO_ROOT / "SIH26242-PERCEPTRON-RPL-AI.pptx"
+DEFAULT_ASSETS_DIR = REPO_ROOT / "docs" / "deck_assets"
+DEFAULT_OUTPUT = REPO_ROOT / "SIH26242-PERCEPTRON-RPL-AI.pptx"
 
-prs = pptx.Presentation(src_template)
+parser = argparse.ArgumentParser(description="Build and export SIH26242 master presentation deck")
+parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE, help="Path to input template PPTX")
+parser.add_argument("--assets-dir", type=Path, default=DEFAULT_ASSETS_DIR, help="Path to deck assets folder")
+parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Path for generated output PPTX")
+args, _ = parser.parse_known_args()
+
+src_template = args.template
+if not src_template.exists():
+    print(f"Error: Template not found at {src_template}", file=sys.stderr)
+    sys.exit(1)
+
+assets_dir = args.assets_dir
+img_slide2 = str(assets_dir / "slide2_multimodal_ui.jpg")
+img_slide3 = str(assets_dir / "slide3_tech_flowchart.jpg")
+img_slide5 = str(assets_dir / "slide5_socio_economic_impact.jpg")
+
+prs = pptx.Presentation(str(src_template))
 
 def set_text_run(paragraph, text, font_name="Times New Roman", font_size=12.0, bold=False):
     paragraph.text = ""
@@ -418,7 +435,6 @@ for shape in slide6.shapes:
             if p.runs:
                 p.runs[0].hyperlink.address = "https://sih-rpl-ai.onrender.com"
 
-# Save presentation to both target destinations
-prs.save(dst_pptx_1)
-prs.save(dst_pptx_2)
-print("SUCCESS: Successfully built and exported SIH26242 master presentation decks!")
+# Save presentation to output destination
+prs.save(str(args.output))
+print(f"SUCCESS: Successfully built and exported SIH26242 master presentation deck to {args.output}!")
