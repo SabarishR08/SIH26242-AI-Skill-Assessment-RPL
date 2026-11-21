@@ -65,39 +65,71 @@ def should_exclude(rel: Path, p: Path) -> bool:
         p: Absolute path of the target file.
 
     Returns:
-        bool: True if path matches exclusion directories, suffixes, or is not a file.
+        bool: True if path matches exclusion directories, suffixes, or hidden files.
     """
-    if any(part in EXCLUDE_DIRS for part in rel.parts) or not p.is_file():
+    if any(part.startswith(".") for part in rel.parts):
+        return True
+    if any(part in EXCLUDE_DIRS for part in rel.parts):
         return True
     if p.suffix.lower() in EXCLUDE_SUFFIXES:
         return True
     return False
 
 
+def copy_catalogue_data() -> None:
+    """Copy data catalogue files from repo root data/ directory into ml/data/."""
+    dst_dir = ML_ROOT / "data"
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    src_dir = REPO / "data"
+    for name in DATA_FILES:
+        src = src_dir / name
+        if src.exists():
+            shutil.copy2(src, dst_dir / name)
+
+
+def make_bundle(output_dir: Path | None = None) -> Path:
+    """Build a zip archive containing ML pipeline scripts, config, and data files.
+
+    Args:
+        output_dir: Directory where the output zip file will be saved.
+                   Defaults to REPO/dist if not specified.
+
+    Returns:
+        Path: Path to the generated zip file.
+    """
+    now = datetime.now(timezone.utc)
+    copy_catalogue_data()
+    info_path = ML_ROOT / "BUNDLE_INFO.json"
+    with open(info_path, "w", encoding="utf-8") as f:
+        json.dump(create_bundle_info(now), f, indent=2)
+
+    out_dir = output_dir or (REPO / "dist")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp_str = now.strftime("%Y%m%d-%H%M%S")
+    zip_path = out_dir / f"pathfinder-ml-bundle-{stamp_str}.zip"
+
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for p in ML_ROOT.rglob("*"):
+            if p.is_file():
+                rel = p.relative_to(ML_ROOT)
+                if not should_exclude(rel, p):
+                    zf.write(p, arcname=Path("ml") / rel)
+
+    if info_path.exists():
+        info_path.unlink()
+
+    return zip_path
+
+
 def main() -> int:
-    """Copy data files, generate BUNDLE_INFO.json, and package ml/ directory into a zip bundle.
+    """Main entry point for building the ML bundle.
 
     Returns:
         int: Exit status code (0 for success).
     """
-    (ML_ROOT / "data").mkdir(exist_ok=True)
-    for name in DATA_FILES:
-        shutil.copy2(REPO / "data" / name, ML_ROOT / "data" / name)
-
-    stamp = datetime.now(timezone.utc)
-    info = create_bundle_info(stamp)
-    (ML_ROOT / "BUNDLE_INFO.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
-
-    out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO / "dist"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = out_dir / f"pathfinder-ml-bundle-{stamp.strftime('%Y%m%d')}.zip"
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for p in ML_ROOT.rglob("*"):
-            rel = p.relative_to(ML_ROOT)
-            if should_exclude(rel, p):
-                continue
-            zf.write(p, Path("pathfinder-ml") / rel)
-    print(f"bundle: {zip_path} ({zip_path.stat().st_size / 2**20:.1f} MB)")
+    out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+    archive = make_bundle(out_dir)
+    print(f"Bundle created: {archive} ({archive.stat().st_size / 1e6:.1f} MB)")
     return 0
 
 
