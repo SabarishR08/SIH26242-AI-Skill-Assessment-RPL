@@ -4,7 +4,7 @@ Thank you for considering contributing to this project! This document outlines l
 
 ## Prerequisites
 
-- **Node.js**: v18+ (refer to `.nvmrc` / `.node-version`)
+- **Node.js**: v18+
 - **npm**: Package manager
 - **Python**: 3.9+ (optional, for ML pipeline scripts in `ml/`)
 
@@ -62,7 +62,7 @@ Run Playwright E2E tests:
 npx playwright test
 ```
 
-### Machine‑Learning Scripts (Optional)
+### Machine Learning Scripts (Optional)
 If you are working on the ML pipeline located in `ml/`:
 1. Install Python dependencies:
    ```bash
